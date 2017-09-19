@@ -21,8 +21,11 @@ package musicbrainz
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ipfs/go-cid"
 	"github.com/julienschmidt/httprouter"
 	"github.com/meta-network/go-meta"
 	"github.com/neelance/graphql-go"
@@ -50,6 +53,7 @@ func NewAPI(db *sql.DB, store *meta.Store) (*API, error) {
 		router: httprouter.New(),
 	}
 	api.router.GET("/", api.HandleIndex)
+	api.router.POST("/connect", api.HandleConnect)
 	api.router.Handler("POST", "/graphql", &relay.Handler{Schema: schema})
 	return api, nil
 }
@@ -61,6 +65,45 @@ func (a *API) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (a *API) HandleIndex(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	w.Header().Set("Content-Type", "text/html")
 	w.Write(indexHTML)
+}
+
+func (a *API) HandleConnect(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	// open a connection to PostgreSQL
+	uri := req.URL.Query().Get("postgres-uri")
+	if uri == "" {
+		http.Error(w, "missing postgres-uri query param", http.StatusBadRequest)
+		return
+	}
+	db, err := sql.Open("postgres", uri)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error connecting to %q: %s", uri, err), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	// create the indexer
+	indexer, err := NewIndexer(a.db, a.store)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// convert the artists into a stream
+	stream := make(chan *cid.Cid)
+	go func() {
+		defer close(stream)
+		if err := NewConverter(db, a.store).ConvertArtists(req.Context(), stream); err != nil {
+			log.Error("error converting MusicBrainz data", "uri", uri, "err", err)
+		}
+	}()
+
+	// index the stream
+	if err := indexer.IndexArtists(req.Context(), stream); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 var indexHTML = []byte(`
