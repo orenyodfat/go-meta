@@ -129,7 +129,12 @@ func (i *Indexer) indexMessageHeader(ernID *cid.Cid, obj *meta.Object) error {
 	graph := meta.NewGraph(i.store, obj)
 
 	// decode decodes whatever is stored at path into the given value
-	decode := func(v interface{}, path ...string) error {
+	decode := func(v interface{}, path ...string) (err error) {
+		defer func() {
+			if err != nil {
+				err = fmt.Errorf("error decoding %s into %T: %s", path, v, err)
+			}
+		}()
 		x, err := graph.Get(path...)
 		if meta.IsPathNotFound(err) {
 			return nil
@@ -163,14 +168,14 @@ func (i *Indexer) indexMessageHeader(ernID *cid.Cid, obj *meta.Object) error {
 			return nil, err
 		}
 		var partyName struct {
-			FullName string `json:"FullName"`
+			Value string `json:"@value"`
 		}
-		if err := decode(&partyName, field, "PartyName"); err != nil {
+		if err := decode(&partyName, field, "PartyName", "FullName"); err != nil {
 			return nil, err
 		}
 		_, err = i.db.Exec(
 			"INSERT INTO party (cid, id, name) VALUES ($1, $2, $3)",
-			id.String(), partyID.Value, partyName.FullName,
+			id.String(), partyID.Value, partyName.Value,
 		)
 		if err != nil && !isUniqueErr(err) {
 			return nil, err
