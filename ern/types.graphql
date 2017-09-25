@@ -1,0 +1,116 @@
+# Schema definitions
+
+# Party Schemas
+interface PartyId {
+	id:ID! #PartyId value
+	isIsni:Boolean
+	isDPid:Boolean
+	namespace:String
+}
+
+interface PartyName {
+	fullName:String!
+	abbreviatedName:String
+}
+
+interface ResourceContributorRole {
+	role:String! #ResourceContributorRole value
+	userDefinedValue:String
+	nameSpace:String
+}
+
+type PartyDetails implements PartyId, PartyName {
+	id:ID!
+	isIsni:Boolean
+	isDPid:Boolean
+	namespace:String
+	fullName:String!
+	abbreviatedName:String
+}
+
+type ResourceContributor implements ResourceContributorRole {
+	partyDetails:PartyDetails!
+	isFeaturedArtist:Boolean
+	role:String!
+	userDefinedValue:String
+	nameSpace:String
+}
+
+# Resource Schemas
+type Title {
+	titleText:String!
+	titleType:String!
+}
+
+type DisplayArtist {
+	partyDetails:PartyDetails!
+	artistRole:String
+}
+
+type Label {
+	labelName:String!
+	labelNameType:String
+	userDefinedType:String
+	userDefinedValue:String
+}
+
+interface SoundRecordingId {
+	isrc:String!
+	proprietaryId:String
+}
+
+interface Genre {
+	genreText:String!
+	subGenre:String
+}
+
+# SoundRecording => SoundRecordingDetailsByTerritory
+type SoundRecording implements SoundRecordingId, Genre {
+	isrc:String!
+	proprietaryId:String
+	territoryCode:String!
+	resourceRef:String!
+	title:[Title]!
+	displayArtist:DisplayArtist!
+	contributors:[ResourceContributor]!
+	label:[Label]!
+	genreText:String!
+	subGenre:String
+	parentalWarningType:String
+}
+
+
+# Release Schemas
+interface ReleaseId {
+	grid:String
+	isrc:String
+	icpn:Int
+}
+
+interface ReferenceTitle {
+	titleText:String!
+	subTitle:String
+}
+
+type ReleaseDetails implements Genre {
+	territoryCode:String!
+	releaseDate:String!
+	title:[Title]
+	displayArtist:DisplayArtist
+	label:[Label]
+	genreText:String
+	subGenre:String
+	parentalWarningType:String
+}
+
+
+type Release implements ReleaseId, ReferenceTitle {
+	grid:String
+	isrc:String
+	icpn:Int
+	releaseRef:String!
+	titleText:String!
+	subTitle:String
+	releaseType:String
+	releaseDetailsByTerritory:[ReleaseDetails]!
+}

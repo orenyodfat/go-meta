@@ -1,0 +1,17 @@
+# /party-details
+# @notice Search for a specific party within the ERN:Party table
+type PartyQuery {
+	party(id: ID, name: String): [PartyDetails]
+}
+
+# /party-resources
+# @notice Return the resources associated with the PartyID submitted
+type PartyResourcesQuery {
+	resources(id: ID, name: String): [SoundRecording]
+}
+
+# /party-releases
+# @notice Return the releases associated with the PartyID submitted
+type PartyReleasesQuery {
+	releases(id: ID!): [Release]
+}
