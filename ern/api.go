@@ -38,7 +38,7 @@ type API struct {
 
 func NewAPI(db *sql.DB, store *meta.Store) (*API, error) {
 	schema, err := graphql.ParseSchema(
-		GraphQLPartySchema,
+		GraphQLPartyDetailsSchema,
 		NewResolver(db, store),
 	)
 	if err != nil {

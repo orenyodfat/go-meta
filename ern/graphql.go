@@ -19,18 +19,18 @@
 
 package ern
 
-import {
+import (
 	"database/sql"
 	"errors"
 
 	"github.com/ipfs/go-cid"
 	"github.com/meta-network/go-meta"
-}
+)
 
 // General purpose GraphQL resolver function,
 // retrieves data from a META store and SQLite3 index
 type Resolver struct {
-	db *sql.db
+	db *sql.DB
 	store *meta.Store
 }
 
@@ -42,54 +42,45 @@ func NewResolver(db *sql.DB, store *meta.Store) *Resolver {
 
 // PartyDetails
 // The graphQL schema definition for PartyDetails on the ERN index
-const GraphQLPartySchema = `
-interface PartyId {
-	partyID:ID!
-	namespace:String
-}
-
-interface PartyName {
-	fullName:String!
-	abbreviatedName:String
-}
-
-type PartyDetails implements PartyId, PartyName {
-	partyID:ID!
+const GraphQLPartyDetailsSchema = `
+type PartyDetails {
+	partyID:String!
 	namespace:String
 	fullName:String!
 	abbreviatedName:String
 }
 
-# /party-details
-# @notice Search for a specific party within the ERN:Party table
-type PartyQuery {
-	party(id: ID, name: String): [PartyDetails]
+type PartyDetailsQuery {
+	partyDetails(
+		id: String,
+		name: String
+	): [PartyDetails]
 }
 
 schema {
-	partyQuery: PartyQuery
+	query: PartyDetailsQuery
 }
 `
 
 // Query arguments for PartyDetails query
 type partyDetailsArgs struct {
-	PartyName *string
-	PartyID *string
+	Name *string
+	ID *string
 }
 
 // The resolver function to retrieve the PartyDetails information from the SQLite index
 func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver, error) {
 	
-	var rows *sql.rows
+	var rows *sql.Rows
 	var err error
 
 	switch {
-	case args.PartyName != nil:
-		rows, err = g.db.Query("SELECT cid FROM party WHERE name = ?", *args.PartyName)
-	case args.PartyID != nil:
-		rows, err = g.db.Query("SELECT cid FROM party WHERE id = ?", *args.PartyID)
+	case args.Name != nil:
+		rows, err = g.db.Query("SELECT cid FROM party WHERE name = ?", *args.Name)
+	case args.ID != nil:
+		rows, err = g.db.Query("SELECT cid FROM party WHERE id = ?", *args.ID)
 	default:
-		return nil, errors.New("Missing PartyName or PartyID argument in query")
+		return nil, errors.New("Missing Name or ID argument in query")
 	}
 
 	if err != nil {
@@ -107,7 +98,7 @@ func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver,
 		if err != nil {
 			return nil, err
 		}
-		obj, err := g.Store.Get(id)
+		obj, err := g.store.Get(id)
 		if err != nil {
 			return nil, err
 		}
@@ -116,7 +107,7 @@ func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver,
 		if err := obj.Decode(&partyDetails); err != nil {
 			return nil, err
 		}
-		resolvers = append(resolvers, &partyDetails{objectID, &partyDetails})
+		resolvers = append(resolvers, &partyDetailsResolver{objectID, &partyDetails})
 	}
 
 	if err := rows.Err(); err != nil {
@@ -136,30 +127,30 @@ func (pd *partyDetailsResolver) Cid() string {
 }
 
 func (pd *partyDetailsResolver) Fullname() string {
-	return pd.partyDetails.fullName
+	return pd.partyDetails.FullName
 }
 
-func (pd *partyDetailsResolver) PartyID() string {
-	if pd.partyDetails.partyID == nil {
-		return nil
+func (pd *partyDetailsResolver) PartyId() string {
+	if pd.partyDetails.PartyId == "" {
+		return ""
 	}
-	return pd.partyDetails.partyID
+	return pd.partyDetails.PartyId
 }
 
-func (pd *partyDetailsResolver) Namespace() *string {
-	if pd.partyDetails.namespace == nil {
-		return nil
+func (pd *partyDetailsResolver) Namespace() string {
+	if pd.partyDetails.Namespace == "" {
+		return ""
 	}
-	return &pd.partyDetails.namespace
+	return pd.partyDetails.Namespace
 }
 
 // *string = returns a pointer, rather than copying the value
-func (pd *partyDetailsResolver) AbbreviatedName() *string {
-	if pd.partyDetails.abbreviatedName == nil {
-		return nil
+func (pd *partyDetailsResolver) AbbreviatedName() string {
+	if pd.partyDetails.AbbreviatedName == "" {
+		return ""
 	}
 	// return &VALUE = creates the pointer
-	return &pd.partyDetails.abbreviatedName
+	return pd.partyDetails.AbbreviatedName
 }
 
 
@@ -240,42 +231,41 @@ type partyResourcesArgs struct {
 	PartyID *string
 }
 
-func (g *Resolver) PartyResources(args partyResourcesArgs) ([]*partyResourceResolvers, error) {
+// func (g *Resolver) PartyResources(args partyResourcesArgs) ([]*partyResourceResolvers, error) {
 
-	var rows *sql.rows
-	var err error
+// 	var rows *sql.Rows
+// 	var err error
 
-	switch {
-		case args.PartyName != nil:
-			rows, err = g.db.Query("SELECT cid FROM party WHERE name = ?", *args.PartyName)
-		case args.PartyID != nil:
-			rows, err = g.db.Query("SELECT cid FROM WHERE id = ?", *args.PartyID)
-		default:
-			return nil, errors.New("Missing PartyName or PartyID argument in query")
-	}
+// 	switch {
+// 		case args.PartyName != nil:
+// 			rows, err = g.db.Query("SELECT cid FROM party WHERE name = ?", *args.PartyName)
+// 		case args.PartyID != nil:
+// 			rows, err = g.db.Query("SELECT cid FROM WHERE id = ?", *args.PartyID)
+// 		default:
+// 			return nil, errors.New("Missing PartyName or PartyID argument in query")
+// 	}
 
-	if err != nil {
-		nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	defer rows.Close()
-	var resolvers []*partyResourceResolvers
-	for rows.Next() {
-		var objectID string
-		if err := rows.Scan(&objectID); err != nil {
-			return nil, err
-		}
-		id, err := cid.Parse(objectID)
-		if err != nil {
-			return nil, err
-		}
-		obj, err := g.Store.Get(id)
-		if err != nil {
-			return nil, err
-		}
+// 	defer rows.Close()
+// 	var resolvers []*partyResourceResolvers
+// 	for rows.Next() {
+// 		var objectID string
+// 		if err := rows.Scan(&objectID); err != nil {
+// 			return nil, err
+// 		}
+// 		id, err := cid.Parse(objectID)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		obj, err := g.Store.Get(id)
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-		var 
-	}
+// 	}
 
-}
+// }
 
