@@ -23,6 +23,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
 	"github.com/meta-network/go-meta"
 )
@@ -30,7 +31,7 @@ import (
 // General purpose GraphQL resolver function,
 // retrieves data from a META store and SQLite3 index
 type Resolver struct {
-	db *sql.DB
+	db    *sql.DB
 	store *meta.Store
 }
 
@@ -65,12 +66,13 @@ schema {
 // Query arguments for PartyDetails query
 type partyDetailsArgs struct {
 	Name *string
-	ID *string
+	ID   *string
 }
 
 // The resolver function to retrieve the PartyDetails information from the SQLite index
-func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver, error) {
-	
+//func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver, error) {
+func (g *Resolver) PartyDetails(args partyDetailsArgs) (*[]*partyDetailsResolver, error) {
+
 	var rows *sql.Rows
 	var err error
 
@@ -83,6 +85,7 @@ func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver,
 		return nil, errors.New("Missing Name or ID argument in query")
 	}
 
+	log.Warn("foo")
 	if err != nil {
 		return nil, err
 	}
@@ -113,12 +116,12 @@ func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver,
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return resolvers, nil
+	return &resolvers, nil
 }
 
 // partyDetailsResolver defines grapQL resolver functions for the PartyDetails fields
 type partyDetailsResolver struct {
-	cid string
+	cid          string
 	partyDetails *PartyDetails
 }
 
@@ -137,26 +140,25 @@ func (pd *partyDetailsResolver) PartyId() string {
 	return pd.partyDetails.PartyId
 }
 
-func (pd *partyDetailsResolver) Namespace() string {
+func (pd *partyDetailsResolver) Namespace() *string {
 	if pd.partyDetails.Namespace == "" {
-		return ""
+		return nil
 	}
-	return pd.partyDetails.Namespace
+	return &pd.partyDetails.Namespace
 }
 
 // *string = returns a pointer, rather than copying the value
-func (pd *partyDetailsResolver) AbbreviatedName() string {
+func (pd *partyDetailsResolver) AbbreviatedName() *string {
 	if pd.partyDetails.AbbreviatedName == "" {
-		return ""
+		return nil
 	}
 	// return &VALUE = creates the pointer
-	return pd.partyDetails.AbbreviatedName
+	return &pd.partyDetails.AbbreviatedName
 }
-
 
 // PartyResources
 // GrahQL schema for PartyResources
-// Aware of repetition with PartyDetails, plan to revisit... 
+// Aware of repetition with PartyDetails, plan to revisit...
 const GraphQLPartyResourcesSchema = `
 	interface PartyId {
 		partyID:ID!
@@ -228,7 +230,7 @@ const GraphQLPartyResourcesSchema = `
 
 type partyResourcesArgs struct {
 	PartyName *string
-	PartyID *string
+	PartyID   *string
 }
 
 // func (g *Resolver) PartyResources(args partyResourcesArgs) ([]*partyResourceResolvers, error) {
@@ -268,4 +270,3 @@ type partyResourcesArgs struct {
 // 	}
 
 // }
-
