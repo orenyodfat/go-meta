@@ -34,6 +34,7 @@ var PartyDetailsConext = Context{
 
 // PartyDetails combines the PartyName and PartyId DDEX complex types.
 type PartyDetails struct {
+	Context	 					Context `json:"@context"`
 	PartyId  					string `json:"partyId, omitempty"`
 	IsIsni   					bool `json:"isIsni, omitempty"`
 	IsDPid   					bool `json:"isDPid, omitempty"`

@@ -22,8 +22,7 @@ package ern
 import (
 	"database/sql"
 	"errors"
-
-	"github.com/ethereum/go-ethereum/log"
+	
 	"github.com/ipfs/go-cid"
 	"github.com/meta-network/go-meta"
 )
@@ -45,6 +44,7 @@ func NewResolver(db *sql.DB, store *meta.Store) *Resolver {
 // The graphQL schema definition for PartyDetails on the ERN index
 const GraphQLPartyDetailsSchema = `
 type PartyDetails {
+	cid: String!
 	partyID:String!
 	namespace:String
 	fullName:String!
@@ -55,7 +55,7 @@ type PartyDetailsQuery {
 	partyDetails(
 		id: String,
 		name: String
-	): [PartyDetails]
+	): [PartyDetails]!
 }
 
 schema {
@@ -70,8 +70,7 @@ type partyDetailsArgs struct {
 }
 
 // The resolver function to retrieve the PartyDetails information from the SQLite index
-//func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver, error) {
-func (g *Resolver) PartyDetails(args partyDetailsArgs) (*[]*partyDetailsResolver, error) {
+func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver, error) {
 
 	var rows *sql.Rows
 	var err error
@@ -85,7 +84,7 @@ func (g *Resolver) PartyDetails(args partyDetailsArgs) (*[]*partyDetailsResolver
 		return nil, errors.New("Missing Name or ID argument in query")
 	}
 
-	log.Warn("foo")
+
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +115,7 @@ func (g *Resolver) PartyDetails(args partyDetailsArgs) (*[]*partyDetailsResolver
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return &resolvers, nil
+	return resolvers, nil
 }
 
 // partyDetailsResolver defines grapQL resolver functions for the PartyDetails fields
