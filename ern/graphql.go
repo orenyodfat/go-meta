@@ -22,6 +22,7 @@ package ern
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	
 	"github.com/ipfs/go-cid"
 	"github.com/meta-network/go-meta"
@@ -46,9 +47,7 @@ const GraphQLPartyDetailsSchema = `
 type PartyDetails {
 	cid: String!
 	partyID:String!
-	namespace:String
 	fullName:String!
-	abbreviatedName:String
 }
 
 type PartyDetailsQuery {
@@ -69,6 +68,38 @@ type partyDetailsArgs struct {
 	ID   *string
 }
 
+// Find a value within a MetaObject and decode it to a specific schema, then return result
+// metaObj - the meta object to be decoded
+// v - the schema defintion to decode to
+// path - the tree path (that is found in the source data document (ERN))
+func DecodeSrcObj(i *Resolver, metaObj *meta.Object, v interface{}, path ...string) (err error) {
+	graph := meta.NewGraph(i.store, metaObj)
+
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("Error decoding %s into %T: %s", path, v, err)
+		}
+	}()
+
+	x, err := graph.Get(path...)
+	if meta.IsPathNotFound(err) {
+		fmt.Printf("Cant find path")
+		return nil
+	} else if err != nil {
+		return err
+	}
+	id, ok := x.(*cid.Cid)
+	if !ok {
+		return fmt.Errorf("Expected %s to be *cid.Cid, got %T", path, x)
+	}
+
+	obj, err := i.store.Get(id)
+	if err != nil {
+		return err
+	}
+	return obj.Decode(v)
+}
+
 // The resolver function to retrieve the PartyDetails information from the SQLite index
 func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver, error) {
 
@@ -83,7 +114,6 @@ func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver,
 	default:
 		return nil, errors.New("Missing Name or ID argument in query")
 	}
-
 
 	if err != nil {
 		return nil, err
@@ -100,15 +130,29 @@ func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver,
 		if err != nil {
 			return nil, err
 		}
+
 		obj, err := g.store.Get(id)
 		if err != nil {
 			return nil, err
 		}
 
-		var partyDetails PartyDetails
-		if err := obj.Decode(&partyDetails); err != nil {
+		var DdexPartyId struct {
+			Value string `json:"@value"`
+		}
+		if err := DecodeSrcObj(g, obj, &DdexPartyId, "PartyId"); err != nil {
 			return nil, err
 		}
+
+		var DdexPartyName struct {
+			Value string `json:"@value"`
+		}
+		if err := DecodeSrcObj(g, obj, &DdexPartyName, "PartyName", "FullName"); err != nil {
+			return nil, err
+		}
+		// Not keen on the below, but refinement will take time :)
+		var partyDetails PartyDetails
+		partyDetails.PartyId = DdexPartyId.Value
+		partyDetails.PartyName = DdexPartyName.Value
 		resolvers = append(resolvers, &partyDetailsResolver{objectID, &partyDetails})
 	}
 
@@ -124,12 +168,12 @@ type partyDetailsResolver struct {
 	partyDetails *PartyDetails
 }
 
-func (pd *partyDetailsResolver) Cid() string {
+func (pd *partyDetailsResolver) Cid() string {	
 	return pd.cid
 }
 
 func (pd *partyDetailsResolver) Fullname() string {
-	return pd.partyDetails.FullName
+	return pd.partyDetails.PartyName
 }
 
 func (pd *partyDetailsResolver) PartyId() string {
@@ -137,22 +181,6 @@ func (pd *partyDetailsResolver) PartyId() string {
 		return ""
 	}
 	return pd.partyDetails.PartyId
-}
-
-func (pd *partyDetailsResolver) Namespace() *string {
-	if pd.partyDetails.Namespace == "" {
-		return nil
-	}
-	return &pd.partyDetails.Namespace
-}
-
-// *string = returns a pointer, rather than copying the value
-func (pd *partyDetailsResolver) AbbreviatedName() *string {
-	if pd.partyDetails.AbbreviatedName == "" {
-		return nil
-	}
-	// return &VALUE = creates the pointer
-	return &pd.partyDetails.AbbreviatedName
 }
 
 // PartyResources

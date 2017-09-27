@@ -32,15 +32,9 @@ var PartyDetailsConext = Context{
 	"userDefinedValue": "http://service.ddex.net/xml/ern/382/release-notification.xsd#userDefinedValue", //xs:string
 }
 
-// PartyDetails combines the PartyName and PartyId DDEX complex types.
+// PartyDetails combines the PartyName and PartyID DDEX complex types.
 type PartyDetails struct {
 	Context	 					Context `json:"@context"`
 	PartyId  					string `json:"partyId, omitempty"`
-	IsIsni   					bool `json:"isIsni, omitempty"`
-	IsDPid   					bool `json:"isDPid, omitempty"`
-	Namespace   			string `json:"namespace, omitempty"`
-	FullName   				string `json:"fullName, omitempty"`
-	AbbreviatedName   string `json:"abbreviatedName, omitempty"`
-	Role   						string `json:"role, omitempty"`
-	UserDefinedValue  string `json:"userDefinedValue, omitempty"`
+	PartyName   			string `json:"fullName, omitempty"`
 }
