@@ -23,7 +23,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	
+
 	"github.com/ipfs/go-cid"
 	"github.com/meta-network/go-meta"
 )
@@ -44,22 +44,37 @@ func NewResolver(db *sql.DB, store *meta.Store) *Resolver {
 // PartyDetails
 // The graphQL schema definition for PartyDetails on the ERN index
 const GraphQLPartyDetailsSchema = `
-type PartyDetails {
-	cid: String!
-	partyID:String!
-	fullName:String!
-}
+	schema {
+		query: Query
+	}
 
-type PartyDetailsQuery {
-	partyDetails(
-		id: String,
-		name: String
-	): [PartyDetails]!
-}
+	type Query {
+		partyDetails(id: String, name: String): [PartyDetails]!
+		soundRecording(id: String, title: String): [SoundRecording]!
+	}
 
-schema {
-	query: PartyDetailsQuery
-}
+	type PartyDetails {
+		cid: String!
+		partyID: String!
+		fullName: String!
+	}
+
+	type ResourceContributor {
+		partyDetails: PartyDetails!
+		role: String!
+	}
+
+	type SoundRecording {
+		artistName: String!
+		# contributors: [ResourceContributor]!
+		genre: String!
+		# parentalWarningType: String
+		resourceReference: String!
+		# subGenre: String
+		soundRecordingId: String!
+		territoryCode: String!
+		title: String!
+	}
 `
 
 // Query arguments for PartyDetails query
@@ -168,7 +183,7 @@ type partyDetailsResolver struct {
 	partyDetails *PartyDetails
 }
 
-func (pd *partyDetailsResolver) Cid() string {	
+func (pd *partyDetailsResolver) Cid() string {
 	return pd.cid
 }
 
@@ -183,117 +198,176 @@ func (pd *partyDetailsResolver) PartyId() string {
 	return pd.partyDetails.PartyId
 }
 
-// PartyResources
-// GrahQL schema for PartyResources
-// Aware of repetition with PartyDetails, plan to revisit...
-const GraphQLPartyResourcesSchema = `
-	interface PartyId {
-		partyID:ID!
-		namespace:String
-	}
+/**
+ * SoundRecording
+ */
 
-	interface PartyName {
-		fullName:String!
-		abbreviatedName:String
-	}
-
-	type PartyDetails implements PartyId, PartyName {
-		partyID:ID!
-		namespace:String
-		fullName:String!
-		abbreviatedName:String
-	}
-
-	type Title {
-		titleText:String!
-		titleType:String!
-	}
-
-	type DisplayArtist {
-		partyDetails:PartyDetails!
-		artistRole:String
-	}
-
-	type Label {
-		labelName:String!
-		labelNameType:String
-		userDefinedType:String
-		userDefinedValue:String
-	}
-
-	interface SoundRecordingId {
-		isrc:String!
-		proprietaryId:String
-	}
-
-	interface Genre {
-		genreText:String!
-		subGenre:String
-	}
-
-	# SoundRecording => SoundRecordingDetailsByTerritory
-	type SoundRecording implements SoundRecordingId, Genre {
-		isrc:String!
-		proprietaryId:String
-		territoryCode:String!
-		resourceRef:String!
-		title:[Title]!
-		displayArtist:DisplayArtist!
-		contributors:[ResourceContributor]!
-		label:[Label]!
-		genreText:String!
-		subGenre:String
-		parentalWarningType:String
-	}
-
-	type PartyResourcesQuery {
-		resources(id: ID, name: String): [SoundRecording]
-	}
-
-	schema {
-		query: PartyResourcesQuery
-	}
-`
-
-type partyResourcesArgs struct {
-	PartyName *string
-	PartyID   *string
+type soundRecordingArgs struct {
+	ID   *string
+	Title   *string
 }
 
-// func (g *Resolver) PartyResources(args partyResourcesArgs) ([]*partyResourceResolvers, error) {
+type soundRecordingResolver struct {
+	cid string
+	soundRecording *SoundRecording
+}
 
-// 	var rows *sql.Rows
-// 	var err error
+func (sr *soundRecordingResolver) Cid() string {
+	return sr.cid
+}
 
-// 	switch {
-// 		case args.PartyName != nil:
-// 			rows, err = g.db.Query("SELECT cid FROM party WHERE name = ?", *args.PartyName)
-// 		case args.PartyID != nil:
-// 			rows, err = g.db.Query("SELECT cid FROM WHERE id = ?", *args.PartyID)
-// 		default:
-// 			return nil, errors.New("Missing PartyName or PartyID argument in query")
-// 	}
+func (sr *soundRecordingResolver) ArtistName() string {
+	return sr.soundRecording.ArtistName
+}
 
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func (sr *soundRecordingResolver) Genre() string {
+	return sr.soundRecording.GenreText
+}
 
-// 	defer rows.Close()
-// 	var resolvers []*partyResourceResolvers
-// 	for rows.Next() {
-// 		var objectID string
-// 		if err := rows.Scan(&objectID); err != nil {
-// 			return nil, err
-// 		}
-// 		id, err := cid.Parse(objectID)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		obj, err := g.Store.Get(id)
-// 		if err != nil {
-// 			return nil, err
-// 		}
+func (sr *soundRecordingResolver) ParentalWarningType() string {
+	return sr.soundRecording.ParentalWarningType
+}
 
-// 	}
+func (sr *soundRecordingResolver) ResourceReference() string {
+	return sr.soundRecording.ResourceReference
+}
 
-// }
+func (sr *soundRecordingResolver) SoundRecordingId() string {
+	return sr.soundRecording.SoundRecordingId
+}
+
+func (sr *soundRecordingResolver) SubGenre() string {
+	return sr.soundRecording.SubGenre
+}
+
+func (sr *soundRecordingResolver) TerritoryCode() string {
+	return sr.soundRecording.TerritoryCode
+}
+
+func (sr *soundRecordingResolver) Title() string {
+	return sr.soundRecording.ReferenceTitle
+}
+
+func (g *Resolver) SoundRecording(args soundRecordingArgs) ([]*soundRecordingResolver, error) {
+	var rows *sql.Rows
+	var err error
+
+	switch {
+	case args.ID != nil:
+		rows, err = g.db.Query("SELECT cid FROM sound_recording WHERE id = ?", *args.ID)
+	case args.Title != nil:
+		rows, err = g.db.Query("SELECT cid FROM sound_recording WHERE title = ?", *args.Title)
+	default:
+		return nil, errors.New("Missing ID or Title argument in query")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var response []*soundRecordingResolver
+
+	for rows.Next() {
+		var objectID string
+
+		if err := rows.Scan(&objectID); err != nil {
+			return nil, err
+		}
+
+		id, err := cid.Parse(objectID)
+
+		if err != nil {
+			return nil, err
+		}
+
+		obj, err := g.store.Get(id)
+
+		if err != nil {
+			return nil, err
+		}
+
+		var ArtistName struct {
+			Value string `json:"@value"`
+		}
+
+		if err := DecodeSrcObj(g, obj, &ArtistName, "SoundRecordingDetailsByTerritory", "DisplayArtist", "PartyName", "FullName"); err != nil {
+			return nil, err
+		}
+
+		var GenreText struct {
+			Value string `json:"@value"`
+		}
+
+		if err := DecodeSrcObj(g, obj, &GenreText, "SoundRecordingDetailsByTerritory", "Genre", "GenreText"); err != nil {
+			return nil, err
+		}
+
+		var ParentalWarningType struct {
+			Value string `json:"@value"`
+		}
+
+		if err := DecodeSrcObj(g, obj, &ParentalWarningType, "SoundRecordingDetailsByTerritory", "ParentalWarningType"); err != nil {
+			return nil, err
+		}
+
+		var ReferenceTitle struct {
+			Value string `json:"@value"`
+		}
+
+		if err := DecodeSrcObj(g, obj, &ReferenceTitle, "ReferenceTitle", "TitleText"); err != nil {
+			return nil, err
+		}
+
+		var ResourceReference struct {
+			Value string `json:"@value"`
+		}
+
+		if err := DecodeSrcObj(g, obj, &ResourceReference, "ResourceReference"); err != nil {
+			return nil, err
+		}
+
+		var SoundRecordingId struct {
+			Value string `json:"@value"`
+		}
+
+		if err := DecodeSrcObj(g, obj, &SoundRecordingId, "SoundRecordingId", "ISRC"); err != nil {
+			return nil, err
+		}
+
+		var SubGenre struct {
+			Value string `json:"@value"`
+		}
+
+		if err := DecodeSrcObj(g, obj, &SubGenre, "SoundRecordingDetailsByTerritory", "Genre", "SubGenre"); err != nil {
+			return nil, err
+		}
+
+		var TerritoryCode struct {
+			Value string `json:"@value"`
+		}
+
+		if err := DecodeSrcObj(g, obj, &TerritoryCode, "SoundRecordingDetailsByTerritory", "TerritoryCode"); err != nil {
+			return nil, err
+		}
+
+		var soundRecording SoundRecording
+		soundRecording.ArtistName = ArtistName.Value
+		soundRecording.GenreText = GenreText.Value
+		soundRecording.ParentalWarningType = ParentalWarningType.Value
+		soundRecording.ReferenceTitle = ReferenceTitle.Value
+		soundRecording.ResourceReference = ResourceReference.Value
+		soundRecording.SoundRecordingId = SoundRecordingId.Value
+		soundRecording.SubGenre = SubGenre.Value
+		soundRecording.TerritoryCode = TerritoryCode.Value
+
+		response = append(response, &soundRecordingResolver{objectID, &soundRecording})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
