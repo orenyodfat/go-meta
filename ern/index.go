@@ -123,70 +123,75 @@ func isUniqueErr(err error) bool {
 	return e.Code == sqlite3.ErrConstraint && e.ExtendedCode == sqlite3.ErrConstraintUnique
 }
 
-// indexMessageHeader indexes an ERN MessageHeader based on its MessageId,
-// MessageThreadId, MessageSender, MessageRecipient and MessageCreatedDateTime.
-func (i *Indexer) indexMessageHeader(ernID *cid.Cid, obj *meta.Object) error {
-	graph := meta.NewGraph(i.store, obj)
+ // decode decodes whatever is stored at path into the given value
+func DecodeIndexObj(i *Indexer, metaObj *meta.Object, v interface{}, path ...string) (err error) {
+	graph := meta.NewGraph(i.store, metaObj)
 
-	// decode decodes whatever is stored at path into the given value
-	decode := func(v interface{}, path ...string) (err error) {
-		defer func() {
-			if err != nil {
-				err = fmt.Errorf("error decoding %s into %T: %s", path, v, err)
-			}
-		}()
-		x, err := graph.Get(path...)
-		if meta.IsPathNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
-		id, ok := x.(*cid.Cid)
-		if !ok {
-			return fmt.Errorf("expected %s to be *cid.Cid, got %T", path, x)
-		}
-		obj, err := i.store.Get(id)
+	defer func() {
 		if err != nil {
-			return err
+			err = fmt.Errorf("Error decoding %s into %T: %s", path, v, err)
 		}
-		return obj.Decode(v)
+	}()
+
+	x, err := graph.Get(path...)
+	if meta.IsPathNotFound(err) {
+		fmt.Printf("Cant find path")
+		return nil
+	} else if err != nil {
+		return err
+	}
+	id, ok := x.(*cid.Cid)
+	if !ok {
+		return fmt.Errorf("Expected %s to be *cid.Cid, got %T", path, x)
 	}
 
-	// insert the MessageSender and MessageRecipient into the party index
-	insertParty := func(field string) (*cid.Cid, error) {
-		var id *cid.Cid
-		link, err := obj.GetLink(field)
-		if err == nil {
-			id = link.Cid
-		} else if !meta.IsPathNotFound(err) {
-			return nil, err
-		}
-		var partyID struct {
-			Value string `json:"@value"`
-		}
-		if err := decode(&partyID, field, "PartyId"); err != nil {
-			return nil, err
-		}
-		var partyName struct {
-			Value string `json:"@value"`
-		}
-		if err := decode(&partyName, field, "PartyName", "FullName"); err != nil {
-			return nil, err
-		}
-		_, err = i.db.Exec(
-			"INSERT INTO party (cid, id, name) VALUES ($1, $2, $3)",
-			id.String(), partyID.Value, partyName.Value,
-		)
-		if err != nil && !isUniqueErr(err) {
-			return nil, err
-		}
-		return id, nil
-	}
-	sender, err := insertParty("MessageSender")
+	obj, err := i.store.Get(id)
 	if err != nil {
 		return err
 	}
-	recipient, err := insertParty("MessageRecipient")
+	return obj.Decode(v)
+}
+
+// insert the MessageSender and MessageRecipient into the party index
+func InsertParty(i *Indexer, metaObj *meta.Object, field string) (*cid.Cid, error) {
+	var id *cid.Cid
+	link, err := metaObj.GetLink(field)
+	if err == nil {
+		id = link.Cid
+	} else if !meta.IsPathNotFound(err) {
+		return nil, err
+	}
+	var partyID struct {
+		Value string `json:"@value"`
+	}
+	if err := DecodeIndexObj(i, metaObj, &partyID, field, "PartyId"); err != nil {
+		return nil, err
+	}
+	var partyName struct {
+		Value string `json:"@value"`
+	}
+	if err := DecodeIndexObj(i, metaObj, &partyName, field, "PartyName", "FullName"); err != nil {
+		return nil, err
+	}
+	_, err = i.db.Exec(
+		"INSERT INTO party (cid, id, name) VALUES ($1, $2, $3)",
+		id.String(), partyID.Value, partyName.Value,
+	)
+	if err != nil && !isUniqueErr(err) {
+		return nil, err
+	}
+	return id, nil
+}
+
+// indexMessageHeader indexes an ERN MessageHeader based on its MessageId,
+// MessageThreadId, MessageSender, MessageRecipient and MessageCreatedDateTime.
+func (i *Indexer) indexMessageHeader(ernID *cid.Cid, obj *meta.Object) error {
+
+	sender, err := InsertParty(i, obj, "MessageSender")
+	if err != nil {
+		return err
+	}
+	recipient, err := InsertParty(i, obj, "MessageRecipient")
 	if err != nil {
 		return err
 	}
@@ -196,19 +201,19 @@ func (i *Indexer) indexMessageHeader(ernID *cid.Cid, obj *meta.Object) error {
 	var messageID struct {
 		Value string `json:"@value"`
 	}
-	if err := decode(&messageID, "MessageId"); err != nil {
+	if err := DecodeIndexObj(i, obj, &messageID, "MessageId"); err != nil {
 		return err
 	}
 	var threadID struct {
 		Value string `json:"@value"`
 	}
-	if err := decode(&threadID, "MessageThreadId"); err != nil {
+	if err := DecodeIndexObj(i, obj, &threadID, "MessageThreadId"); err != nil {
 		return err
 	}
 	var created struct {
 		Value string `json:"@value"`
 	}
-	if err := decode(&created, "MessageCreatedDateTime"); err != nil {
+	if err := DecodeIndexObj(i, obj, &created, "MessageCreatedDateTime"); err != nil {
 		return err
 	}
 

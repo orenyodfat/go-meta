@@ -72,7 +72,7 @@ type partyDetailsArgs struct {
 // metaObj - the meta object to be decoded
 // v - the schema defintion to decode to
 // path - the tree path (that is found in the source data document (ERN))
-func DecodeSrcObj(i *Resolver, metaObj *meta.Object, v interface{}, path ...string) (err error) {
+func DecodeResolverObj(i *Resolver, metaObj *meta.Object, v interface{}, path ...string) (err error) {
 	graph := meta.NewGraph(i.store, metaObj)
 
 	defer func() {
@@ -139,14 +139,14 @@ func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver,
 		var DdexPartyId struct {
 			Value string `json:"@value"`
 		}
-		if err := DecodeSrcObj(g, obj, &DdexPartyId, "PartyId"); err != nil {
+		if err := DecodeResolverObj(g, obj, &DdexPartyId, "PartyId"); err != nil {
 			return nil, err
 		}
 
 		var DdexPartyName struct {
 			Value string `json:"@value"`
 		}
-		if err := DecodeSrcObj(g, obj, &DdexPartyName, "PartyName", "FullName"); err != nil {
+		if err := DecodeResolverObj(g, obj, &DdexPartyName, "PartyName", "FullName"); err != nil {
 			return nil, err
 		}
 		// Not keen on the below, but refinement will take time :)
