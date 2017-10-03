@@ -98,8 +98,7 @@ func DecodeResolverObj(i *Resolver, metaObj *meta.Object, v interface{}, path ..
 
 	x, err := graph.Get(path...)
 	if meta.IsPathNotFound(err) {
-		fmt.Printf("Cant find path")
-		return nil
+		return err
 	} else if err != nil {
 		return err
 	}
@@ -155,7 +154,8 @@ func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver,
 			Value string `json:"@value"`
 		}
 		if err := DecodeResolverObj(g, obj, &DdexPartyId, "PartyId"); err != nil {
-			return nil, err
+			pid := &DdexPartyId
+			pid.Value = "000"
 		}
 
 		var DdexPartyName struct {
@@ -192,9 +192,6 @@ func (pd *partyDetailsResolver) Fullname() string {
 }
 
 func (pd *partyDetailsResolver) PartyId() string {
-	if pd.partyDetails.PartyId == "" {
-		return ""
-	}
 	return pd.partyDetails.PartyId
 }
 
@@ -292,7 +289,7 @@ func (g *Resolver) SoundRecording(args soundRecordingArgs) ([]*soundRecordingRes
 			Value string `json:"@value"`
 		}
 
-		if err := DecodeSrcObj(g, obj, &ArtistName, "SoundRecordingDetailsByTerritory", "DisplayArtist", "PartyName", "FullName"); err != nil {
+		if err := DecodeResolverObj(g, obj, &ArtistName, "SoundRecordingDetailsByTerritory", "DisplayArtist", "PartyName", "FullName"); err != nil {
 			return nil, err
 		}
 
@@ -300,7 +297,7 @@ func (g *Resolver) SoundRecording(args soundRecordingArgs) ([]*soundRecordingRes
 			Value string `json:"@value"`
 		}
 
-		if err := DecodeSrcObj(g, obj, &GenreText, "SoundRecordingDetailsByTerritory", "Genre", "GenreText"); err != nil {
+		if err := DecodeResolverObj(g, obj, &GenreText, "SoundRecordingDetailsByTerritory", "Genre", "GenreText"); err != nil {
 			return nil, err
 		}
 
@@ -308,7 +305,7 @@ func (g *Resolver) SoundRecording(args soundRecordingArgs) ([]*soundRecordingRes
 			Value string `json:"@value"`
 		}
 
-		if err := DecodeSrcObj(g, obj, &ParentalWarningType, "SoundRecordingDetailsByTerritory", "ParentalWarningType"); err != nil {
+		if err := DecodeResolverObj(g, obj, &ParentalWarningType, "SoundRecordingDetailsByTerritory", "ParentalWarningType"); err != nil {
 			return nil, err
 		}
 
@@ -316,7 +313,7 @@ func (g *Resolver) SoundRecording(args soundRecordingArgs) ([]*soundRecordingRes
 			Value string `json:"@value"`
 		}
 
-		if err := DecodeSrcObj(g, obj, &ReferenceTitle, "ReferenceTitle", "TitleText"); err != nil {
+		if err := DecodeResolverObj(g, obj, &ReferenceTitle, "ReferenceTitle", "TitleText"); err != nil {
 			return nil, err
 		}
 
@@ -324,7 +321,7 @@ func (g *Resolver) SoundRecording(args soundRecordingArgs) ([]*soundRecordingRes
 			Value string `json:"@value"`
 		}
 
-		if err := DecodeSrcObj(g, obj, &ResourceReference, "ResourceReference"); err != nil {
+		if err := DecodeResolverObj(g, obj, &ResourceReference, "ResourceReference"); err != nil {
 			return nil, err
 		}
 
@@ -332,7 +329,7 @@ func (g *Resolver) SoundRecording(args soundRecordingArgs) ([]*soundRecordingRes
 			Value string `json:"@value"`
 		}
 
-		if err := DecodeSrcObj(g, obj, &SoundRecordingId, "SoundRecordingId", "ISRC"); err != nil {
+		if err := DecodeResolverObj(g, obj, &SoundRecordingId, "SoundRecordingId", "ISRC"); err != nil {
 			return nil, err
 		}
 
@@ -340,7 +337,7 @@ func (g *Resolver) SoundRecording(args soundRecordingArgs) ([]*soundRecordingRes
 			Value string `json:"@value"`
 		}
 
-		if err := DecodeSrcObj(g, obj, &SubGenre, "SoundRecordingDetailsByTerritory", "Genre", "SubGenre"); err != nil {
+		if err := DecodeResolverObj(g, obj, &SubGenre, "SoundRecordingDetailsByTerritory", "Genre", "SubGenre"); err != nil {
 			return nil, err
 		}
 
@@ -348,7 +345,7 @@ func (g *Resolver) SoundRecording(args soundRecordingArgs) ([]*soundRecordingRes
 			Value string `json:"@value"`
 		}
 
-		if err := DecodeSrcObj(g, obj, &TerritoryCode, "SoundRecordingDetailsByTerritory", "TerritoryCode"); err != nil {
+		if err := DecodeResolverObj(g, obj, &TerritoryCode, "SoundRecordingDetailsByTerritory", "TerritoryCode"); err != nil {
 			return nil, err
 		}
 

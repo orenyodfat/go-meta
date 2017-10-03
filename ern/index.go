@@ -135,8 +135,7 @@ func DecodeIndexObj(i *Indexer, metaObj *meta.Object, v interface{}, path ...str
 
 	x, err := graph.Get(path...)
 	if meta.IsPathNotFound(err) {
-		fmt.Printf("Cant find path")
-		return nil
+		return err
 	} else if err != nil {
 		return err
 	}
@@ -165,15 +164,14 @@ func InsertParty(i *Indexer, metaObj *meta.Object, field string) (*cid.Cid, erro
 		Value string `json:"@value"`
 	}
 	if err := DecodeIndexObj(i, metaObj, &partyID, field, "PartyId"); err != nil {
-		return nil, err
+		pid := &partyID
+		pid.Value = "000"
 	}
 	var partyName struct {
 		Value string `json:"@value"`
 	}
 	if err := DecodeIndexObj(i, metaObj, &partyName, field, "PartyName", "FullName"); err != nil {
-		// Gracefully handle no PartyID being present
-		// This does nothing...
-		partyName.Value = "000"
+		return nil, err
 	}
 	_, err = i.db.Exec(
 		"INSERT INTO party (cid, id, name) VALUES ($1, $2, $3)",
