@@ -171,7 +171,9 @@ func InsertParty(i *Indexer, metaObj *meta.Object, field string) (*cid.Cid, erro
 		Value string `json:"@value"`
 	}
 	if err := DecodeIndexObj(i, metaObj, &partyName, field, "PartyName", "FullName"); err != nil {
-		return nil, err
+		// Gracefully handle no PartyID being present
+		// This does nothing...
+		partyName.Value = "000"
 	}
 	_, err = i.db.Exec(
 		"INSERT INTO party (cid, id, name) VALUES ($1, $2, $3)",
@@ -283,6 +285,38 @@ func (i *Indexer) indexSoundRecording(ernID *cid.Cid, obj *meta.Object) error {
 			return err
 		}
 		ids = append(ids, v.(string))
+	}
+
+	// Insert the DisplayArtist to party table
+	srCid, err := obj.Get("SoundRecordingDetailsByTerritory")
+	if err != nil {
+		return err
+	}
+	var cids []*cid.Cid
+	switch srCid := srCid.(type) {
+	case *format.Link:
+		cids = []*cid.Cid{srCid.Cid}
+	case []interface{}:
+		for _, x := range srCid {
+			cid, ok := x.(*cid.Cid)
+			if !ok {
+				return fmt.Errorf("invalid resource type %T, expected *cid.Cid", x)
+			}
+			cids = append(cids, cid)
+		}
+	}
+	for _, cid := range cids {
+		obj, err := i.store.Get(cid)
+		if err != nil {
+			return err
+		}
+		// fmt.Printf("%v", cid)
+		// fmt.Printf("|||")
+		id, err := InsertParty(i, obj, "DisplayArtist")
+		if err != nil {
+			return err
+		}
+		fmt.Sprint("%v", id)
 	}
 
 	// load the ReferenceTitle

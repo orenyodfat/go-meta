@@ -90,10 +90,10 @@ func TestIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// check the MessageSender and MessageRecipient were indexed into the
+	// check the MessageSender, MessageRecipient and DisplayArtist were indexed into the
 	// party table
-	for _, partyID := range []string{"DPID_OF_THE_SENDER", "DPID_OF_THE_RECIPIENT"} {
-		rows, err := db.Query(`SELECT cid FROM party WHERE id = ?`, partyID)
+	for _, partyName := range []string{"NAME_OF_THE_SENDER", "NAME_OF_THE_RECIPIENT", "Monkey Claw"} {
+		rows, err := db.Query(`SELECT cid FROM party WHERE name = ?`, partyName)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -102,7 +102,7 @@ func TestIndex(t *testing.T) {
 		for rows.Next() {
 			// if we've already set id then we have a duplicate
 			if id != "" {
-				t.Fatalf("duplicate entries for PartyId %q", partyID)
+				t.Fatalf("duplicate entries for PartyName %q", partyName)
 			}
 			if err := rows.Scan(&id); err != nil {
 				t.Fatal(err)
@@ -118,24 +118,24 @@ func TestIndex(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			// check the object has the correct PartyId
+			// check the object has the correct PartyName
 			graph := meta.NewGraph(store, obj)
-			v, err := graph.Get("PartyId", "@value")
+			v, err := graph.Get("PartyName", "@value")
 			if err != nil {
 				t.Fatal(err)
 			}
 			actual, ok := v.(string)
 			if !ok {
-				t.Fatalf("expected PartyId value to be string, got %T", v)
+				t.Fatalf("expected PartyName value to be string, got %T", v)
 			}
-			if actual != partyID {
-				t.Fatalf("expected PartyId value %q, got %q", partyID, actual)
+			if actual != partyName {
+				t.Fatalf("expected PartyName value %q, got %q", partyName, actual)
 			}
 		}
 
 		// check we got a result and no db errors
 		if id == "" {
-			t.Fatalf("party %q not found", partyID)
+			t.Fatalf("party %q not found", partyName)
 		} else if err := rows.Err(); err != nil {
 			t.Fatal(err)
 		}
