@@ -67,8 +67,8 @@ CREATE TABLE party (
 	-- cid is the CID of the party
 	cid text NOT NULL,
 
-	-- id is the value of PartyId which is either a DPID or an ISNI
-	id text,
+	-- id is the value of PartyId which is either a DPID or an ISNI, defaults to 000
+	id text DEFAULT 000,
 
 	-- name is the value of PartyName which is either FullName or
 	-- KeyName
