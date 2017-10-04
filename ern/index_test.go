@@ -120,7 +120,7 @@ func TestIndex(t *testing.T) {
 
 			// check the object has the correct PartyName
 			graph := meta.NewGraph(store, obj)
-			v, err := graph.Get("PartyName", "@value")
+			v, err := graph.Get("PartyName", "FullName", "@value")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -190,6 +190,28 @@ func TestIndex(t *testing.T) {
 		}
 		var ernID string
 		row = db.QueryRow("SELECT ern_id FROM resource_list WHERE resource_id = ?", id)
+		if err := row.Scan(&ernID); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// check Release objects were indexed
+	for grId, title := range map[string]string{
+		"A1UCASE0000000401X": "A Monkey Claw in a Velvet Glove",
+		"A1UCASE0000000001X": "Can you feel ...the Monkey Claw!",
+		"A1UCASE0000000002X": "Red top mountain, blown sky high",
+		"A1UCASE0000000003X": "Seige of Antioch",
+		"A1UCASE0000000004X": "Warhammer",
+		"A1UCASE0000000005X": "Iron Horse",
+		"A1UCASE0000000006X": "Yes... I can feel the Monkey Claw!",
+	} {
+		var id string
+		row := db.QueryRow("SELECT cid FROM release WHERE id = ? AND title = ?", grId, title)
+		if err := row.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		var ernID string
+		row = db.QueryRow("SELECT ern_id FROM release_list WHERE release_id = ?", id)
 		if err := row.Scan(&ernID); err != nil {
 			t.Fatal(err)
 		}

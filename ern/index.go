@@ -273,17 +273,14 @@ func (i *Indexer) indexResourceList(ernID *cid.Cid, obj *meta.Object) error {
 func (i *Indexer) indexSoundRecording(ernID *cid.Cid, obj *meta.Object) error {
 	graph := meta.NewGraph(i.store, obj)
 
-	// load each potential ID separately
-	var ids []string
-	for _, field := range []string{"ISRC", "CatalogNumber", "ProprietaryId"} {
-		v, err := graph.Get("SoundRecordingId", field, "@value")
-		if meta.IsPathNotFound(err) {
-			continue
-		} else if err != nil {
-			return err
-		}
-		ids = append(ids, v.(string))
+	// Only *attempt* to load the ISRC, other IDs can be retrieved via GraphQL
+	// Default to empty string if not present
+	var isrc string
+	v, err := graph.Get("SoundRecordingId", "ISRC", "@value")
+	if err == nil {
+		isrc = v.(string)
 	}
+	
 
 	// Insert the DisplayArtist to party table
 	srCid, err := obj.Get("SoundRecordingDetailsByTerritory")
@@ -317,35 +314,31 @@ func (i *Indexer) indexSoundRecording(ernID *cid.Cid, obj *meta.Object) error {
 
 	// load the ReferenceTitle
 	var title string
-	v, err := graph.Get("ReferenceTitle", "TitleText", "@value")
+	rt, err := graph.Get("ReferenceTitle", "TitleText", "@value")
 	if err == nil {
-		title = v.(string)
+		title = rt.(string)
 	} else if !meta.IsPathNotFound(err) {
 		return err
 	}
 
-	// return an error if there is neither an ID nor a ReferenceTitle
-	if len(ids) == 0 && title == "" {
-		return fmt.Errorf("SoundRecording missing both SoundRecordingId and ReferenceTitle")
+	// return an error if there is no ReferenceTitle, SoundRecordingId can be empty
+	if title == "" {
+		return fmt.Errorf("SoundRecording missing ReferenceTitle")
 	}
 
-	// update the sound_recording and resource_list indexes with each ID
-	for _, id := range ids {
-		_, err := i.db.Exec(
-			"INSERT INTO sound_recording (cid, id, title) VALUES ($1, $2, $3)",
-			obj.Cid().String(), id, title,
-		)
-		if err != nil {
-			return err
-		}
+	// update the sound_recording and resource_list indexes
+	if i.db.Exec(
+		"INSERT INTO sound_recording (cid, id, title) VALUES ($1, $2, $3)",
+		obj.Cid().String(), isrc, title,
+	); err != nil {
+		return err
+	}
 
-		_, err = i.db.Exec(
-			"INSERT INTO resource_list (ern_id, resource_id) VALUES ($1, $2)",
-			ernID.String(), obj.Cid().String(),
-		)
-		if err != nil {
-			return err
-		}
+	if i.db.Exec(
+		"INSERT INTO resource_list (ern_id, resource_id) VALUES ($1, $2)",
+		ernID.String(), obj.Cid().String(),
+	); err != nil {
+		return err
 	}
 
 	return nil
@@ -391,16 +384,11 @@ func (i * Indexer) indexRelease(ernID *cid.Cid, metaObj *meta.Object) error {
 
 	graph := meta.NewGraph(i.store, metaObj)
 
-	// load each potential ID separately
-	var ids []string
-	for _, field := range []string{"GRid", "ISRC", "ICPN", "CatalogNumber", "ProprietaryId"} {
-		v, err := graph.Get("ReleaseId", field, "@value")
-		if meta.IsPathNotFound(err) {
-			continue
-		} else if err != nil {
-			return err
-		}
-		ids = append(ids, v.(string))
+	// Only *attempt* to load the GRid, other IDs can be retrieved via GraphQL
+	var grId string
+	v, err := graph.Get("ReleaseId", "GRid", "@value")
+	if err == nil {
+		grId = v.(string)
 	}
 
 	// load the ReferenceTitle
@@ -420,27 +408,25 @@ func (i * Indexer) indexRelease(ernID *cid.Cid, metaObj *meta.Object) error {
 	// } else if !meta.IsPathNotFound(err) {
 	// 	return err
 	// }
+	// fmt.Printf("ReleaseType: %v", rType)
 
-	// return an error if there is neither an ID nor a ReferenceTitle
-	if len(ids) == 0 && title == "" {
-		return fmt.Errorf("Release missing both ReleaseId and ReferenceTitle")
+	// return an error if there is no ReferenceTitle, ReleaseId can be empty
+	if title == "" {
+		return fmt.Errorf("Release missing ReferenceTitle")
 	}
 
-	// update the sound_recording and resource_list indexes with each ID
-	for _, id := range ids {
-		_, err := i.db.Exec(
-			"INSERT INTO release (cid, id, title) VALUES ($1, $2, $3)",
-			metaObj.Cid().String(), id, title,
-		)
-		if err != nil {
-			return err
-		}		
+	// update the release and release_list indexes
+	if i.db.Exec(
+		"INSERT INTO release (cid, id, title) VALUES ($1, $2, $3)",
+		metaObj.Cid().String(), grId, title,
+	); err != nil {
+		return err
 	}
-	_, err = i.db.Exec(
+
+	if i.db.Exec(
 		"INSERT INTO release_list (ern_id, release_id) VALUES ($1, $2)",
 		ernID.String(), metaObj.Cid().String(),
-	)
-	if err != nil {
+	); err != nil {
 		return err
 	}
 

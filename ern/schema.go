@@ -86,9 +86,9 @@ CREATE TABLE release (
 	-- cid is the CID of the Release
 	cid text NOT NULL,
 
-	-- id is the value of ReleaseId which is either a GRid, ISRC, ICPN,
-	-- CatalogNumber or ProprietaryId
-	id text NOT NULL,
+	-- id is the value of ReleaseId:GRid
+	-- If not found in src ERN, defaults to 000
+	id text DEFAULT 000,
 
 	-- title is the value of the Release ReferenceTitle
 	title text
@@ -168,9 +168,9 @@ CREATE TABLE sound_recording (
 	-- cid is the CID of the SoundRecording
 	cid text NOT NULL,
 
-	-- id is the value of SoundRecordingId which is either an ISRC,
-	-- CatalogNumber or ProprietaryId
-	id text,
+	-- id is the value of SoundRecordingId:ISRC,
+	-- If not found in the src ERN, defaults to 000
+	id text DEFAULT 000,
 
 	-- title is the value of the SoundRecording ReferenceTitle
 	title text
