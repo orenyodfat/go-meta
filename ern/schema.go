@@ -92,6 +92,7 @@ CREATE TABLE release (
 
 	-- title is the value of the Release ReferenceTitle
 	title text
+
 );
 CREATE INDEX release_cid_idx   ON release (cid);
 CREATE INDEX release_id_idx    ON release (id);

@@ -165,9 +165,7 @@ func (g *Resolver) PartyDetails(args partyDetailsArgs) ([]*partyDetailsResolver,
 			return nil, err
 		}
 		// Not keen on the below, but refinement will take time :)
-		var partyDetails PartyDetails
-		partyDetails.PartyId = DdexPartyId.Value
-		partyDetails.PartyName = DdexPartyName.Value
+		partyDetails := PartyDetails{PartyId: DdexPartyId.Value, PartyName: DdexPartyName.Value}
 		resolvers = append(resolvers, &partyDetailsResolver{objectID, &partyDetails})
 	}
 

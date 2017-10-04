@@ -308,8 +308,6 @@ func (i *Indexer) indexSoundRecording(ernID *cid.Cid, obj *meta.Object) error {
 		if err != nil {
 			return err
 		}
-		// fmt.Printf("%v", cid)
-		// fmt.Printf("|||")
 		id, err := InsertParty(i, obj, "DisplayArtist")
 		if err != nil {
 			return err
@@ -353,7 +351,99 @@ func (i *Indexer) indexSoundRecording(ernID *cid.Cid, obj *meta.Object) error {
 	return nil
 }
 
-func (i *Indexer) indexReleaseList(ernID *cid.Cid, obj *meta.Object) error {
-	// TODO: index Releases
+// indexReleaseList indexes the ReleaseList for each Release composite
+func (i *Indexer) indexReleaseList(ernID *cid.Cid, metaObj *meta.Object) error {
+	// Much like the resource list, the release propoerty can be
+	// a single release, or an array of links.
+	rls, err := metaObj.Get("Release") 
+	if err != nil {
+		return err
+	}
+	var cids []*cid.Cid
+	switch rls := rls.(type) {
+	case *format.Link:
+		cids = []*cid.Cid{rls.Cid}
+	case []interface{}:
+		for _, x := range rls {
+			id, ok := x.(*cid.Cid)
+			if !ok {
+				return fmt.Errorf("Invalid release type %T, expected *cid.Cid", x)
+			}
+			cids = append(cids, id)
+		}
+	}
+
+	// load and index each Release link
+	for _, id := range cids {
+		rObj, err := i.store.Get(id)
+		if err != nil {
+			return err
+		}
+		if err := i.indexRelease(ernID, rObj); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// indexRelease index each Release composite in the ReelaseList
+func (i * Indexer) indexRelease(ernID *cid.Cid, metaObj *meta.Object) error {
+
+	graph := meta.NewGraph(i.store, metaObj)
+
+	// load each potential ID separately
+	var ids []string
+	for _, field := range []string{"GRid", "ISRC", "ICPN", "CatalogNumber", "ProprietaryId"} {
+		v, err := graph.Get("ReleaseId", field, "@value")
+		if meta.IsPathNotFound(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		ids = append(ids, v.(string))
+	}
+
+	// load the ReferenceTitle
+	var title string
+	rtl, err := graph.Get("ReferenceTitle", "TitleText", "@value")
+	if err == nil {
+		title = rtl.(string)
+	} else if !meta.IsPathNotFound(err) {
+		return err
+	}
+
+	// If the field is not present, default to empty string
+	// var rType string
+	// rtp, err := graph.Get("ReleaseType", "@value")
+	// if err == nil {
+	// 	rType = rtp.(string)
+	// } else if !meta.IsPathNotFound(err) {
+	// 	return err
+	// }
+
+	// return an error if there is neither an ID nor a ReferenceTitle
+	if len(ids) == 0 && title == "" {
+		return fmt.Errorf("Release missing both ReleaseId and ReferenceTitle")
+	}
+
+	// update the sound_recording and resource_list indexes with each ID
+	for _, id := range ids {
+		_, err := i.db.Exec(
+			"INSERT INTO release (cid, id, title) VALUES ($1, $2, $3)",
+			metaObj.Cid().String(), id, title,
+		)
+		if err != nil {
+			return err
+		}		
+	}
+	_, err = i.db.Exec(
+		"INSERT INTO release_list (ern_id, release_id) VALUES ($1, $2)",
+		ernID.String(), metaObj.Cid().String(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
