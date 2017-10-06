@@ -22,26 +22,17 @@ package eidr
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"os"
+	"errors"
 	"reflect"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
 	"github.com/meta-network/go-meta"
 	"github.com/meta-network/go-meta/doi"
-	"github.com/meta-network/go-meta/log"
 )
-
-var (
-	parselog *log.ParseLogger
-)
-
-func init() {
-	parselog = log.New(os.Stderr, "eidr")
-}
 
 // Indexer is a META indexer which indexes a stream of META objects
-// representing MusicBrainz Artists into a SQLite3 database, getting the
+// representing EIDR media objects into a SQLite3 database, getting the
 // associated META objects from a META store.
 type Indexer struct {
 	db    *sql.DB
@@ -107,7 +98,7 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 		if !ok {
 			return nil
 		}
-		parselog.Log(log.LL_DEBUG, "eidr", fmt.Sprintf("extradata cid %v", *extracid))
+		log.Trace("eidr extradata", "cid", *extracid)
 		extraobj, err = i.store.Get(extracid)
 		if err != nil {
 			return err
@@ -115,7 +106,7 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 	}
 	basecid, ok := base.(*cid.Cid)
 	if !ok {
-		return nil
+		return errors.New("Missing BaseObject")
 	}
 	baseobj, err := i.store.Get(basecid)
 	if err != nil {
@@ -143,9 +134,12 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 
 	// iterate all elements
 	var m map[string]interface{}
-	baseobj.Decode(&m)
+	err = baseobj.Decode(&m)
+	if err != nil {
+		return err
+	}
 	for field, _ := range m {
-		parselog.Log(log.LL_WARN, basecid.String(), field)
+		log.Trace("found element", "name", field)
 		l, err := baseobj.GetLink(field)
 		if err != nil {
 			// don't fail on optional fields: alternateID
@@ -153,7 +147,6 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 			if field == "AlternateID" || (field[0:1] == "@" && field != "@value") {
 				continue
 			}
-			fmt.Printf("linknotfound: %v", err)
 			return err
 		}
 		// get current object and graph
@@ -161,13 +154,13 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 		if err != nil {
 			return err
 		}
-		graph := meta.NewGraph(i.store, lobj)
-		toptype, err := graph.Get("@type")
+		toptype, err := lobj.GetString("@type")
 		if err != nil {
 			return err
 		}
-		v, err := graph.Get("@value")
-		switch toptype.(string) {
+		graph := meta.NewGraph(i.store, lobj)
+		v, _ := graph.Get("@value")
+		switch toptype {
 		case "Credits":
 			// todo
 			break
@@ -176,7 +169,6 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 			break
 		case "ID":
 			baseObject.id = doi.ID(v.(string))
-			break
 		case "ResourceName":
 			lang, err := lobj.GetString("lang")
 			if err != nil {
@@ -186,44 +178,52 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 			baseObject.resourceName = v.(string)
 			baseObject.resourceNameLang = lang
 			baseObject.resourceNameClass = &class
-			break
 		case "AlternateID":
 			t, err := graph.Get("http://www.w3.org/2001/XMLSchema-instance:type")
 			if err != nil {
 				return err
 			}
+			typ, ok := t.(string)
+			if !ok {
+				return errors.New("Invalid AlternateID type data")
+			}
 			baseObject.alternateID = append(baseObject.alternateID, AlternateID{
 				ID:   v.(string),
-				Type: t.(string),
+				Type: typ,
 			})
-			if t.(string) == "Proprietary" {
-				d, err := graph.Get("domain")
+			if typ == "Proprietary" {
+				domain, err := lobj.GetString("domain")
 				if err != nil {
 					return err
 				}
-				domain, _ := d.(string)
 				baseObject.alternateID[len(baseObject.alternateID)-1].Domain = &domain
 			}
 			// TODO: add relation field (missing in first sample)
-			break
 		case "AssociatedOrg":
 			t, err := graph.Get("role")
 			if err != nil {
 				return err
 			}
+			role, ok := t.(string)
+			if !ok {
+				return errors.New("Invalid AssociateOrg role data")
+			}
 			l, err := lobj.GetLink("DisplayName")
 			if err != nil {
 				return err
 			}
-			lobj, err = i.store.Get(l.Cid)
+			nobj, err := i.store.Get(l.Cid)
 			if err != nil {
 				return err
 			}
-			graph := meta.NewGraph(i.store, lobj)
-			v, err = graph.Get("@value")
+			v, err := nobj.Get("@value")
+			if err != nil {
+				return err
+			}
+			name, ok := v.(string)
 			baseObject.associatedOrg = append(baseObject.associatedOrg, AssociatedOrg{
-				DisplayName: v.(string),
-				Role:        t.(string),
+				DisplayName: name,
+				Role:        role,
 			})
 			// TODO: add id and idtype (missing in first sample)
 		default:
@@ -250,6 +250,9 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 				continue
 			}
 			eobj, err := i.store.Get(e.Cid)
+			if err != nil {
+				return err
+			}
 			graph := meta.NewGraph(i.store, eobj)
 
 			switch field {
@@ -259,7 +262,10 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 				if err != nil {
 					return err
 				}
-				var parentid doi.ID = doi.ID(parent.(string))
+				if _, ok := parent.(string); !ok {
+					return errors.New("Invalid parent field")
+				}
+				parentid := doi.ID(parent.(string))
 				baseObject.parentId = &parentid
 
 				// sequenceinfo is an optional field
@@ -360,7 +366,7 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 
 		// sort on extra metadata object type
 		switch t.Name() {
-		case "episodeInfo":
+		case "episode":
 			o, _ := extratype.(episode)
 			r, err := i.db.Exec(
 				"INSERT INTO xobject_episode (episode_class, time_slot) VALUES ($1, $2)",
@@ -413,8 +419,6 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 			return err
 		}
 	}
-
-	parselog.Log(log.LL_WARN, basecid.String(), fmt.Sprintf("%v %v", baseObject, extra))
 
 	return nil
 }

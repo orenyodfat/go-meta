@@ -25,8 +25,6 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/meta-network/go-meta"
-	//"github.com/neelance/graphql-go"
-	//"github.com/neelance/graphql-go/relay"
 )
 
 // API is a http.Handler which serves GraphQL query responses using a Resolver.
@@ -37,20 +35,12 @@ type API struct {
 }
 
 func NewAPI(db *sql.DB, store *meta.Store) (*API, error) {
-	//	schema, err := graphql.ParseSchema(
-	//		GraphQLSchema,
-	//		NewResolver(db, store),
-	//	)
-	//	if err != nil {
-	//		return nil, err
-	//	}
 	api := &API{
 		db:     db,
 		store:  store,
 		router: httprouter.New(),
 	}
 	api.router.GET("/", api.HandleIndex)
-	//api.router.Handler("POST", "/graphql", &relay.Handler{Schema: schema})
 	return api, nil
 }
 

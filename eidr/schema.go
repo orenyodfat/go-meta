@@ -28,10 +28,16 @@ import (
 var migrations = migrate.NewMigrations()
 
 func init() {
-	// migration 1 creates indexes for the following artist properties:
+	// migration 1 creates indexes for eidr objects
+	// intended for use as a compound onthology of
+	// ReferentType and respective ExtraMetadata derived types
 	//
-	// * Foo - link to spec foo
+	// baseobject: Properties common to all eidr objects
+	// alternateid: 0+ references to external ids pointing to the same object
+	// associatedorg: 0+ references to organizations involved in the realization of the media object
+	// xobject_*: Respective ExtraMetadata derived types
 	//
+	// Certain objects have a compulsory parent reference
 	migrations.Add(1, `
 CREATE TABLE baseobject (
 	doi_id TEXT NOT NULL,
@@ -40,11 +46,10 @@ CREATE TABLE baseobject (
 	status TEXT NOT NULL,
 	resource_name TEXT NOT NULL,
 	resource_name_lang TEXT NOT NULL,
-	resource_name_class TEXT,
-	approximate_length TEXT
+	resource_name_class TEXT
 );
 
-CREATE INDEX baseobject_doi_id_idx ON baseobject(doi_id);
+CREATE UNIQUE INDEX baseobject_doi_id_name_idx ON baseobject(doi_id, resource_name);
 
 CREATE TABLE org (
 	id TEXT,

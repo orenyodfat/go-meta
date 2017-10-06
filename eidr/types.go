@@ -24,20 +24,6 @@ import (
 	"github.com/meta-network/go-meta/doi"
 )
 
-// Context represents a JSON-LD context.
-//type Context map[string]string
-//
-//var BaseObjectContext = Context{
-//	"ID":             "https://eidr.org/technology",
-//	"StructuralType": "https://eidr.org/technology",
-//	"ReferentType":   "https://eidr.org/technology",
-//	"ResourceName":   "https://eidr.org/technology",
-//	"AlternateID":    "https://eidr.org/technology",
-//	"Status":         "https://eidr.org/technology",
-//	"ExtraMetaData":  "https://eidr.org/technology",
-//}
-//
-
 type AssociatedOrg struct {
 	ID          *string
 	IDType      *string

@@ -20,14 +20,10 @@
 package eidr
 
 import (
-	//"context"
-	//"encoding/csv"
 	"io"
-	//"strconv"
 
 	"github.com/ipfs/go-cid"
 	"github.com/meta-network/go-meta"
-	//"github.com/meta-network/go-meta/doi"
 	metaxml "github.com/meta-network/go-meta/xml"
 	"github.com/meta-network/go-meta/xmlschema"
 )
@@ -45,77 +41,6 @@ func NewConverter(store *meta.Store) *Converter {
 	}
 }
 
-//
-//func (c *Converter) ConvertEIDRCSV(ctx context.Context, src io.Reader, outStream chan *cid.Cid) error {
-//	var err error
-//	r := csv.NewReader(src)
-//	r.Comma = '\t'
-//	_, err = r.Read()
-//	if err != nil {
-//		return err
-//	}
-//	for err == nil {
-//		var fields []string
-//		if fields, err = r.Read(); err == nil {
-//			var offset int
-//			baseobj := BaseObjectData{}
-//			baseobj.Context = BaseObjectContext
-//			baseobj.ID = doi.ID(fields[0])
-//			baseobj.StructuralType = fields[1]
-//			baseobj.ReferentType = fields[3]
-//			baseobj.ResourceName = fields[4]
-//			offset, err := strconv.Atoi(fields[129])
-//			if err == nil {
-//				for i := 130; i < 130+(offset*4); i += 4 {
-//					altid := AlternateID{
-//						ID:       fields[i],
-//						Type:     fields[i+1],
-//						Relation: fields[i+3],
-//					}
-//					if altid.Type == "Proprietary" {
-//						altid.Domain = fields[i+2]
-//					}
-//					baseobj.AlternateID = append(baseobj.AlternateID, altid)
-//				}
-//			}
-//			if baseobj.ReferentType == "Series" {
-//				//baseobj.ExtraMetaData = interface{}(SeriesInfo{
-//				seriesobj := SeriesInfo{
-//					SeriesClass: fields[180],
-//				}
-//				obj, err := meta.Encode(seriesobj)
-//				if err != nil {
-//					return err
-//				}
-//				if err := c.store.Put(obj); err != nil {
-//					return err
-//				}
-//				baseobj.ExtraMetaData = *obj.Cid()
-//			} else if fields[184] != "0" { // "Seas Parent"
-//				seasonobj := SeasonInfo{}
-//				if fields[192] != "" { // "NumReq"
-//					seasonobj.NumberRequired = true
-//				}
-//			}
-//			obj, err := meta.Encode(baseobj)
-//			if err != nil {
-//				return err
-//			}
-//			if err := c.store.Put(obj); err != nil {
-//				return err
-//			}
-//			// send the object's CID to the output stream
-//			select {
-//			case outStream <- obj.Cid():
-//			case <-ctx.Done():
-//				return ctx.Err()
-//			}
-//		}
-//	}
-//	return nil
-//}
-
-// TODO: when we get xml data
 func (c *Converter) ConvertEIDRXML(src io.Reader) (*cid.Cid, error) {
 	context := []*cid.Cid{
 		xmlschema.EIDR_common.Cid,

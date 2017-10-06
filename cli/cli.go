@@ -408,7 +408,6 @@ func (cli *CLI) RunERNIndex(ctx context.Context, args Args) error {
 		return err
 	}
 	defer db.Close()
-	fmt.Printf("%v", args)
 	indexer, err := ern.NewIndexer(db, cli.store)
 	if err != nil {
 		return err
