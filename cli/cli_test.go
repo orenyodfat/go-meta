@@ -145,6 +145,75 @@ func TestERNCommands(t *testing.T) {
 	}
 }
 
+// TestERNCommands tests running the 'meta ern convert' and
+// 'meta ern index' commands.
+func TestEIDRCommands(t *testing.T) {
+	c := newTestCLI(t)
+
+	// check 'meta ern convert' prints multiple CIDs
+	stdout := c.run("eidr", "convert",
+		"../eidr/testdata/dummy_child.xml",
+		"../eidr/testdata/dummy_parent.xml",
+	)
+	var ids []string
+	s := bufio.NewScanner(strings.NewReader(stdout))
+	for s.Scan() {
+		id, err := cid.Parse(s.Text())
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id.String())
+	}
+	expected := []string{
+		"zdpuB2humiaiBKwWAQHfXFhPc9UheUwsdrrkYJPfMBXdFnVEm",
+		"zdpuAukxJjQz3P67xqLiEFfx8YoFtmnQJ9ZfhKnddrS77tNTM",
+	}
+	if !reflect.DeepEqual(ids, expected) {
+		t.Fatalf("unexpected CIDs:\nexpected: %v\ngot:      %v", expected, ids)
+	}
+
+	// create a path to store the index
+	tmpDir, err := ioutil.TempDir("", "meta-main-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+	db := filepath.Join(tmpDir, "index.db")
+
+	// run 'meta ern index' with the CIDs as stdin
+	stream := strings.NewReader(stdout)
+	c.runWithStdin(stream, "eidr", "index", db)
+
+	// check if the index has the baseobject and xobject
+	cmd := exec.Command("sqlite3", db, "select p.doi_id, x.base_doi_id, x.xobject_id from xobject_baseobject_link x inner join baseobject p, xobject_episode e on p.doi_id = x.parent_doi_id where e.id = x.xobject_id")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("error checking index: %s: %s", err, out)
+	}
+	if len(out) == 2 {
+		t.Fatalf("baseobject/xobject link query returned no rows")
+	}
+	cmd = exec.Command("sqlite3", db, "select * from org o inner join baseobject b on o.base_doi_id = b.doi_id")
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("error checking index: %s: %s", err, out)
+	}
+	rows := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(rows) != 2 {
+		t.Logf("%v", rows)
+		t.Fatalf("associatedorg link count mismatch; expected 2, got %d", len(rows))
+	}
+	cmd = exec.Command("sqlite3", db, "select * from alternateid a inner join baseobject b on a.base_doi_id = b.doi_id")
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("error checking index: %s: %s", err, out)
+	}
+	rows = strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(rows) != 2 {
+		t.Fatalf("alternateid link count mismatch; expected 2, got %d", len(rows))
+	}
+}
+
 type testCLI struct {
 	t     *testing.T
 	store *meta.Store
