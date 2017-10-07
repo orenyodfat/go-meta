@@ -193,6 +193,8 @@ func TestEIDRCommands(t *testing.T) {
 	if len(out) == 2 {
 		t.Fatalf("baseobject/xobject link query returned no rows")
 	}
+
+	// check if associatedorgs are inserted and linked
 	cmd = exec.Command("sqlite3", db, "select * from org o inner join baseobject b on o.base_doi_id = b.doi_id")
 	out, err = cmd.CombinedOutput()
 	if err != nil {
@@ -203,6 +205,8 @@ func TestEIDRCommands(t *testing.T) {
 		t.Logf("%v", rows)
 		t.Fatalf("associatedorg link count mismatch; expected 2, got %d", len(rows))
 	}
+
+	// check if alternateids are inserted and linked
 	cmd = exec.Command("sqlite3", db, "select * from alternateid a inner join baseobject b on a.base_doi_id = b.doi_id")
 	out, err = cmd.CombinedOutput()
 	if err != nil {
