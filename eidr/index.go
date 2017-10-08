@@ -23,7 +23,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"reflect"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
@@ -87,23 +87,20 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 	} else if err != nil {
 		return err
 	}
-	var extracid *cid.Cid
 	var extraobj *meta.Object
 	extra, err := topgraph.Get("FullMetadata", "ExtraObjectMetadata")
-	if err != nil && !meta.IsPathNotFound(err) {
+	if err != nil {
 		return err
-	} else {
-		var ok bool
-		extracid, ok = extra.(*cid.Cid)
-		if !ok {
-			return nil
-		}
-		log.Trace("eidr extradata", "cid", *extracid)
-		extraobj, err = i.store.Get(extracid)
-		if err != nil {
-			return err
-		}
 	}
+	extracid, ok := extra.(*cid.Cid)
+	if !ok {
+		return nil
+	}
+	extraobj, err = i.store.Get(extracid)
+	if err != nil {
+		return err
+	}
+
 	basecid, ok := base.(*cid.Cid)
 	if !ok {
 		return errors.New("Missing BaseObject")
@@ -361,17 +358,17 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 
 	// process extrametadata
 	if extratype != nil {
-		t := reflect.TypeOf(extratype)
 		var extraid int64
+		var typ string
 
 		// sort on extra metadata object type
-		switch t.Name() {
-		case "episode":
+		switch t := extratype.(type) {
+		case episode:
+			log.Warn(fmt.Sprintf("%v", t))
 			o, _ := extratype.(episode)
 			r, err := i.db.Exec(
-				"INSERT INTO xobject_episode (episode_class, time_slot) VALUES ($1, $2)",
-				o.EpisodeClass,
-				o.TimeSlot)
+				"INSERT INTO xobject_episode (episode_class) VALUES ($1)",
+				o.EpisodeClass)
 			if err != nil {
 				return err
 			}
@@ -379,33 +376,7 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 			if err != nil {
 				return err
 			}
-
-			// index object ideosyncracies
-			if o.SequenceInfo != nil {
-				if o.SequenceInfo.DistributionNumber != nil {
-					_, err = i.db.Exec(
-						"INSERT INTO xobject_episode_sequenceinfo (episode_id, type, value, domain) VALUES ($1, $2, $3, $4)",
-						extraid,
-						"DistributionNumber",
-						o.SequenceInfo.DistributionNumber.Value,
-						o.SequenceInfo.DistributionNumber.Domain)
-					if err != nil {
-						return err
-					}
-				}
-				if o.SequenceInfo.HouseSequence != nil {
-					_, err = i.db.Exec(
-						"INSERT INTO xobject_episode_sequenceinfo (episode_id, type, value, domain) VALUES ($1, $2, $3, $4)",
-						extraid,
-						"HouseSequence",
-						o.SequenceInfo.HouseSequence.Value,
-						o.SequenceInfo.HouseSequence.Domain)
-					if err != nil {
-						return err
-					}
-				}
-				// TODO: loop for alternatenumber
-			}
+			typ = "episode"
 			break
 		}
 		// TODO: check availablility of parent (should probably be linked OR cleaned after the fact)
@@ -414,7 +385,7 @@ func (i *Indexer) index(eidrobj *meta.Object) error {
 			baseObject.id,
 			extraid,
 			baseObject.parentId,
-			t.Name())
+			typ)
 		if err != nil {
 			return err
 		}

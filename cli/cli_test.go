@@ -145,12 +145,12 @@ func TestERNCommands(t *testing.T) {
 	}
 }
 
-// TestERNCommands tests running the 'meta ern convert' and
-// 'meta ern index' commands.
+// TestERNCommands tests running the 'meta eidr convert' and
+// 'meta eidr index' commands.
 func TestEIDRCommands(t *testing.T) {
 	c := newTestCLI(t)
 
-	// check 'meta ern convert' prints multiple CIDs
+	// check 'meta eidr convert' outputs expected rows
 	stdout := c.run("eidr", "convert",
 		"../eidr/testdata/dummy_child.xml",
 		"../eidr/testdata/dummy_parent.xml",
@@ -185,36 +185,33 @@ func TestEIDRCommands(t *testing.T) {
 	c.runWithStdin(stream, "eidr", "index", db)
 
 	// check if the index has the baseobject and xobject
-	cmd := exec.Command("sqlite3", db, "select p.doi_id, x.base_doi_id, x.xobject_id from xobject_baseobject_link x inner join baseobject p, xobject_episode e on p.doi_id = x.parent_doi_id where e.id = x.xobject_id")
+	cmd := exec.Command("sqlite3", db, "select count(*) from xobject_baseobject_link x inner join baseobject p, xobject_episode e on p.doi_id = x.parent_doi_id where e.id = x.xobject_id")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("error checking index: %s: %s", err, out)
 	}
-	if len(out) == 2 {
-		t.Fatalf("baseobject/xobject link query returned no rows")
+	if strings.TrimSpace(string(out)) != "1" {
+		t.Fatalf("baseobject/xobject link count mismatch; expected 1, got %s", out)
 	}
 
 	// check if associatedorgs are inserted and linked
-	cmd = exec.Command("sqlite3", db, "select * from org o inner join baseobject b on o.base_doi_id = b.doi_id")
+	cmd = exec.Command("sqlite3", db, "select count(*) from org o inner join baseobject b on o.base_doi_id = b.doi_id")
 	out, err = cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("error checking index: %s: %s", err, out)
 	}
-	rows := strings.Split(strings.TrimSpace(string(out)), "\n")
-	if len(rows) != 2 {
-		t.Logf("%v", rows)
-		t.Fatalf("associatedorg link count mismatch; expected 2, got %d", len(rows))
+	if strings.TrimSpace(string(out)) != "2" {
+		t.Fatalf("associatedorg link count mismatch; expected 2, got %s", out)
 	}
 
 	// check if alternateids are inserted and linked
-	cmd = exec.Command("sqlite3", db, "select * from alternateid a inner join baseobject b on a.base_doi_id = b.doi_id")
+	cmd = exec.Command("sqlite3", db, "select count(*) from alternateid a inner join baseobject b on a.base_doi_id = b.doi_id")
 	out, err = cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("error checking index: %s: %s", err, out)
 	}
-	rows = strings.Split(strings.TrimSpace(string(out)), "\n")
-	if len(rows) != 2 {
-		t.Fatalf("alternateid link count mismatch; expected 2, got %d", len(rows))
+	if strings.TrimSpace(string(out)) != "2" {
+		t.Fatalf("alternateid link count mismatch; expected 2, got %s", out)
 	}
 }
 

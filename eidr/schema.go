@@ -85,35 +85,17 @@ CREATE UNIQUE INDEX baseobject_parent_child_link_idx ON xobject_baseobject_link(
 
 CREATE TABLE xobject_series (
 	id INTEGER NOT NULL PRIMARY KEY,
-	end_date TEXT,
-	series_class TEXT,
-	number_required INT,
-	date_required INT,
-	original_title_required INT
+	series_class TEXT
 );
 
 CREATE TABLE xobject_season (
 	id INTEGER NOT NULL PRIMARY KEY,
-	end_date TEXT,
-	number_required INT,
-	date_required INT,
-	original_title_required INT
 	sequence_number INT
 );
 
 CREATE TABLE xobject_episode (
 	id INTEGER NOT NULL PRIMARY KEY,
-	episode_class TEXT,
-	sequence_info INT,
-	time_slot TEXT
-);
-
-CREATE TABLE xobject_episode_sequenceinfo (
-	episode_id INT NOT NULL,
-	type TEXT NOT NULL,
-	value TEXT NOT NULL,
-	domain TEXT,
-	FOREIGN KEY(episode_id) REFERENCES xobject_episode(id)
+	episode_class TEXT
 );
 
 `,
