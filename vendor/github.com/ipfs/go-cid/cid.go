@@ -236,11 +236,15 @@ func Cast(data []byte) (*Cid, error) {
 		return nil, err
 	}
 
+	//not work for swarm data store
+	// rest := data[n+cn:]
+	// h, err := mh.Cast(rest)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	//work for swarm datastore
 	rest := data[n+cn:]
-	h, err := mh.Cast(rest)
-	if err != nil {
-		return nil, err
-	}
+	h := rest
 
 	return &Cid{
 		version: vers,

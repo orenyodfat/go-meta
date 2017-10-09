@@ -23,11 +23,13 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/swarm/testutil"
 	"github.com/ipfs/go-cid"
 )
 
@@ -139,6 +141,110 @@ func benchmarkJSONEncode(n int, t *testing.B) {
 
 	stats := new(runtime.MemStats)
 	runtime.ReadMemStats(stats)
+}
+
+type testMeta struct {
+	store *SwarmStore
+	srv   *testutil.TestSwarmServer
+}
+
+func (tm *testMeta) openStore(t *testing.T) (s *SwarmStore, err error) {
+	tm.srv = testutil.NewTestSwarmServer(t)
+
+	defer func() {
+		if err != nil {
+			tm.srv.Close()
+		}
+	}()
+	return NewSwarmStore(tm.srv.URL)
+}
+func TestObjectJSONOnSwarm(t *testing.T) {
+	type Person struct {
+		Name     string     `json:"name"`
+		Children []*cid.Cid `json:"children,omitempty"`
+	}
+
+	x := &testMeta{}
+
+	store, err := x.openStore(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer x.srv.Close()
+
+	fmt.Println("cid1", store.MustPut(&Person{Name: "child0"}).Cid())
+
+	obj := store.MustPut(&Person{
+		Name: "parent",
+		Children: []*cid.Cid{
+			store.MustPut(&Person{Name: "child0"}).Cid(),
+			store.MustPut(&Person{Name: "child1"}).Cid(),
+		},
+	})
+
+	obj, err = store.Get(obj.Cid())
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	data, err := json.MarshalIndent(obj, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []byte(`
+{
+  "children": [
+    {
+      "/": "zZad42ZNaXS6m21C8hEpHJkYSv8aY5jgWNBrcCwMqqsWKpaktd98AgRf2itHJKc9hujQHdbTXefAQS67s4cB6UJKrX"
+    },
+    {
+      "/": "zZbfMfCLJAtxPWhj6fQkZhd9CVZA8da4saotWkqDdLXgbkqf4UrjQjh2wRerzsDuT4WQWx62b4rvpQCLTFbVRq1RDa"
+    }
+  ],
+  "name": "parent"
+}`[1:])
+	if !bytes.Equal(data, expected) {
+		t.Fatalf("unexpected JSON:\nexpected: %s\nactual:   %s", expected, data)
+	}
+}
+
+func TestEncodeDecodeOnSwarm(t *testing.T) {
+	type test struct {
+		Null   interface{}       `json:"null"`
+		Bool   bool              `json:"bool"`
+		Int    int64             `json:"int"`
+		Float  float64           `json:"float"`
+		String string            `json:"string"`
+		Array  []string          `json:"array"`
+		Map    map[string]string `json:"map"`
+	}
+	v := &test{
+		Null:   nil,
+		Bool:   true,
+		Int:    42,
+		Float:  42.24,
+		String: "42",
+		Array:  []string{"42", "42", "42"},
+		Map:    map[string]string{"foo": "42", "bar": "42"},
+	}
+	x := &testMeta{}
+
+	store, err := x.openStore(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	obj, err := store.Put(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := &test{}
+	if err := obj.Decode(w); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(v, w) {
+		t.Fatalf("decoded object not equal:\nexpected %#v\nactual   %#v", v, w)
+	}
 }
 
 func BenchmarkEncode1(b *testing.B)     { benchmarkEncode(1, b) }
