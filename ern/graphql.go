@@ -67,6 +67,7 @@ const GraphQLSchema = `
 	}
 
 	type SoundRecording {
+		source: String!
 		artistName: String!
 		genre: String!
 		parentalWarningType: String
@@ -186,8 +187,13 @@ type soundRecordingArgs struct {
 }
 
 type soundRecordingResolver struct {
+	source         string
 	cid            string
 	soundRecording *SoundRecording
+}
+
+func (sr *soundRecordingResolver) Source() string {
+	return sr.source
 }
 
 func (sr *soundRecordingResolver) Cid() string {
@@ -340,7 +346,11 @@ func (g *Resolver) SoundRecording(args soundRecordingArgs) ([]*soundRecordingRes
 		soundRecording.SubGenre = SubGenre.Value
 		soundRecording.TerritoryCode = TerritoryCode.Value
 
-		response = append(response, &soundRecordingResolver{objectID, &soundRecording})
+		source, err := obj.GetString("@source")
+		if err != nil {
+			return nil, err
+		}
+		response = append(response, &soundRecordingResolver{source, objectID, &soundRecording})
 	}
 
 	if err := rows.Err(); err != nil {
