@@ -44,135 +44,218 @@ func NewResolver(schemas map[string]*graphql.Schema) *Resolver {
 // GraphQLSchema is the GraphQL schema for META music domains.
 const GraphQLSchema = `
 
-schema {
-  query: Query
+# This GraphQL schema defines the META Media types and queries.
+#
+# It consists of the following main entities:
+#
+# MusicPerformer
+# MusicComposer
+# RecordLabel
+# MusicPublisher
+# MusicRecording
+# MusicWork
+# MusicRelease
+# MusicProduct
+#
+# Each entity has a set of widely used identifiers which are used to uniquely
+# identify them:
+#
+# ISNI - International Standard Name Identifier
+# IPI  - Interested Parties Information
+# DPID - DDEX Party Identifier
+# ISRC - International Standard Recording Code
+# ISWC - International Standard Musical Work Code
+# GRid - Global Release Identifier
+# UPC  - Universal Product Code
+# EAN  - International Article Number
+#
+# Other entity properties (like performer name or recording title) are linked
+# to these identifiers by various sources in the META network.
+
+#
+# --- Main Entities ---
+#
+type MusicPerformer {
+  identifiers: [PartyIdentifier]
+
+  name: StringValue
+
+  products:   [MusicProductLink]
+  releases:   [MusicReleaseLink]
+  recordings: [MusicRecordingLink]
+  labels:     [RecordLabelLink]
 }
 
-type Query {
-  recording(id:String ,title: String): Recording!
-}
+type MusicComposer {
+  identifiers: [PartyIdentifier]
 
-type IntSource {
-  value:  Int
-  source: String
-  score:  String
-}
+  name: StringValue
 
-type IntValue {
-  value:   Int
-  sources: [StringSource]
-}
-
-
-
-type StringSource {
-  value:  String
-  source: String
-  score:  String
-}
-
-type StringValue {
-  value:   String
-  sources: [StringSource]
-}
-
-type Identifier {
-	id:String!
-	type:String! # IPI || ISWC || GRid
-}
-
-type Party {
-	identifiers:[Identifier]
-	type:StringValue # Person || Organisation
-	displayName:StringValue
-	formalName:StringValue
-	firstName: StringValue
-	lastName: StringValue
-}
-
-# Music Types
-type TerritoryAgreement {
-	isoTerritoryCode:StringValue
-	condition:StringValue # inclusion/exclusion indicator
-}
-
-type InterestedPartyAgreement {
-	agreementRoleCode:StringValue
-	interestedPartyNumber:IntValue
-	party:Party
-	prSociety:StringValue
-	prShare:IntValue
-	mrSociety:StringValue
-	mrShare:IntValue
-}
-
-type MusicWork {
-	identifiers:[Identifier]
-	workTitle:StringValue
-	territories:[TerritoryAgreement]
-	#interestedParties:[InterestedPartyAgreement]
-	#publishers:[Party]
-	#composers:[Composer]
-	#recordings:[Recording]
-}
-
-type Recording {
-  identifiers:[Identifier]
-	displayTitle:StringValue!
-  displayArtist:[Performer]
-  contributors:[Party]
-  label:[Party]
-	genre:StringValue!
-	work:MusicWork
-	#products:[MusicProduct]
-}
-
-type TerritoryProduct {
-	territories:[TerritoryAgreement]
-	releaseDate:String!
-	displayTitle:String!
-	displayArtist:String
-	label:[Party]
-	genre:String
-}
-
-type MusicProduct {
-	identifiers:[Identifier]!
-	productType:String!
-	displayTitle:String!
-	genre:String
-	recordings:[Recording]
-	territoryProducts:[TerritoryProduct]!
-}
-
-type Performer {
-	party:Party!
-	role:StringValue
-	recordings:[Recording]
-	#products:[MusicProduct]
-}
-
-type Composer {
-	party:Party
-	works:[MusicWork]
+  works:      [MusicWorkLink]
+  publishers: [MusicPublisherLink]
 }
 
 type RecordLabel {
-	party:Party
-	performers:[Performer]
-	recordings:[Recording]
-	products:[MusicProduct]
+  identifiers: [PartyIdentifier]
+
+  name: StringValue
+
+  products:   [MusicProductLink]
+  releases:   [MusicReleaseLink]
+  recordings: [MusicRecordingLink]
+  performers: [MusicPerformerLink]
 }
 
 type MusicPublisher {
-	party:Party
-	composers:[Composer]
-	works:[MusicWork]
+  identifiers: [PartyIdentifier]
+
+  name: StringValue
+
+  composers: [MusicComposerLink]
+  works:     [MusicWorkLink]
+}
+
+type MusicRecording {
+  isrc: IDValue
+
+  title: StringValue
+
+  products:   [MusicProductLink]
+  releases:   [MusicReleaseLink]
+  performers: [MusicPerformerLink]
+  labels:     [RecordLabelLink]
+  works:      [MusicWorkLink]
+}
+
+type MusicWork {
+  iswc: IDValue
+
+  title: StringValue
+
+  composers:  [MusicComposerLink]
+  recordings: [MusicRecordingLink]
+  publishers: [MusicPublisherLink]
+}
+
+type MusicRelease {
+  grid: IDValue
+
+  title: StringValue
+
+  products:   [MusicProductLink]
+  recordings: [MusicRecordingLink]
+  performers: [MusicPerformerLink]
+  labels:     [RecordLabelLink]
+	detailsByTerritory: [ReleaseDetailsByTerritoryLink]
+}
+
+type MusicProduct {
+  upc: IDValue
+  ean: IDValue
+
+  releases:   [MusicReleaseLink]
+  recordings: [MusicRecordingLink]
+  performers: [MusicPerformerLink]
+  labels:     [RecordLabelLink]
+}
+
+type ReleaseDetailsByTerritory {
+
+}
+
+#
+# --- Link Types ---
+#
+type MusicPerformerLink {
+  source:    Source!
+  performer: MusicPerformer!
+  role:      String
+}
+
+type MusicComposerLink {
+  source:   Source!
+  composer: MusicComposer!
+}
+
+type RecordLabelLink {
+  source: Source!
+  label:  RecordLabel!
+}
+
+type MusicPublisherLink {
+  source:    Source!
+  publisher: MusicPublisher!
+}
+
+type MusicRecordingLink {
+  source:    Source!
+  recording: MusicRecording!
+}
+
+type MusicWorkLink {
+  source: Source!
+  work:   MusicWork!
+}
+
+type MusicReleaseLink {
+  source:  Source!
+  release: MusicRelease!
+}
+
+type MusicProductLink {
+  source:  Source!
+  product: MusicProduct!
+}
+
+type ReleaseDetailsByTerritoryLink {
+  source:  Source!
+	displayTitle:String!
+	displayArtist:String
+	genre:String
+}
+
+#
+# --- Value Types ---
+#
+enum PartyIdentifierType {
+  ISNI
+  IPI
+  DPID
+}
+
+type PartyIdentifier {
+  type:   PartyIdentifierType!
+  value:  String!
+  source: Source!
+}
+
+type StringValue {
+  value:   String!
+  sources: [StringSource]
+}
+
+type StringSource {
+  value:  String!
+  source: Source!
+  score:  Int!
+}
+
+type Source {
+  name: String!
+}
+type IDValue {
+  value:   String!
+  sources: [ValueSource]
+}
+type ValueSource {
+  value:  String!
+  source: Source!
+  score:  Int!
 }
 `
 
-// RecordingArgs are the arguments for a GraphQL recording query.
-type recordingArgs struct {
+// RecordingArgs are the arguments for a GraphQL musicRecording query.
+type musicRecordingArgs struct {
 	Title *string
 	ID    *string
 }
@@ -189,10 +272,9 @@ func formatJSON(data []byte) ([]byte, error) {
 	return formatted, nil
 }
 
-// Recording is a GraphQL resolver function which retrieves object IDs from the
-// SQLite3 index using either an RegisteredWork RecordType, Title ,ISWC,or CompositeType, and loads the
-// associated META objects from the META store.
-func (g *Resolver) Recording(args recordingArgs) (resolver *recordingResolver, err error) {
+// MusicRecording is a GraphQL resolver function which retrieves musicRecording object from a
+// grahql schema which can be either ern,cwr or musicbrainz.
+func (g *Resolver) MusicRecording(args musicRecordingArgs) (resolver *musicRecordingResolver, err error) {
 	var queryString string
 	switch {
 	case args.Title != nil:
@@ -213,22 +295,22 @@ func (g *Resolver) Recording(args recordingArgs) (resolver *recordingResolver, e
 	res := Response{}
 	json.Unmarshal(result.Data, &res)
 
-	recording := Recording{}
+	musicRecording := MusicRecording{}
 	for _, soundRecording := range res.SoundRecording {
-		recording.Genre.sources = append(recording.Genre.sources, StringSource{value: soundRecording["genre"], source: soundRecording["source"], score: "5"})
-		recording.Title.sources = append(recording.Title.sources, StringSource{value: soundRecording["title"], source: soundRecording["source"], score: "5"})
-		recording.Identifiers = append(recording.Identifiers, Identifier{ID: soundRecording["soundRecordingId"], Type: "ISRC"})
+		musicRecording.Genre.sources = append(musicRecording.Genre.sources, StringSource{value: soundRecording["genre"], source: soundRecording["source"], score: "5"})
+		musicRecording.Title.sources = append(musicRecording.Title.sources, StringSource{value: soundRecording["title"], source: soundRecording["source"], score: "5"})
+		musicRecording.Identifiers = append(musicRecording.Identifiers, Identifier{ID: soundRecording["soundRecordingId"], Type: "ISRC"})
 	}
-	recording.Title.value, err = pickBestValue(recording.Title.sources)
+	musicRecording.Title.value, err = pickBestValue(musicRecording.Title.sources)
 	if err != nil {
 		return nil, err
 	}
-	recording.Genre.value, err = pickBestValue(recording.Genre.sources)
+	musicRecording.Genre.value, err = pickBestValue(musicRecording.Genre.sources)
 	if err != nil {
 		return nil, err
 	}
 
-	return &recordingResolver{&recording}, nil
+	return &musicRecordingResolver{&musicRecording}, nil
 }
 
 func pickBestValue(stringSources []StringSource) (maxScoreValue string, err error) {
@@ -295,7 +377,7 @@ type MusicWork struct {
 	interestedParties []InterestedPartyAgreement
 	publishers        []Party
 	composers         []Composer
-	recordings        []Recording
+	recordings        []MusicRecording
 }
 
 // musicWorkResolver defines grapQL resolver functions for the recording fields
@@ -358,7 +440,7 @@ type Composer struct {
 type Performer struct {
 	party      Party
 	role       StringValue
-	recordings []Recording
+	recordings []MusicRecording
 	products   []MusicProduct
 }
 
@@ -375,12 +457,12 @@ func (p *performerResolver) Party() *partyResolver {
 	return &partyResolver{&p.performer.party}
 }
 
-func (p *performerResolver) Recordings() *[]*recordingResolver {
-	var recordingResolvers []*recordingResolver
+func (p *performerResolver) Recordings() *[]*musicRecordingResolver {
+	var musicRecordingResolvers []*musicRecordingResolver
 	for _, recording := range p.performer.recordings {
-		recordingResolvers = append(recordingResolvers, &recordingResolver{&recording})
+		musicRecordingResolvers = append(musicRecordingResolvers, &musicRecordingResolver{&recording})
 	}
-	return &recordingResolvers
+	return &musicRecordingResolvers
 }
 
 type Party struct {
@@ -430,7 +512,7 @@ type MusicProduct struct {
 	productType       []StringValue
 	displayTitle      []StringValue
 	genre             []StringValue
-	recordings        []Recording
+	recordings        []MusicRecording
 	territoryProducts []TerritoryProduct
 }
 
@@ -444,63 +526,74 @@ type TerritoryProduct struct {
 }
 
 /**
- *	Recording
+ *	MusicRecording
  */
-type Recording struct {
-	Identifiers   []Identifier `json:"identifiers, omitempty"`
-	Title         StringValue  `json:"displayTitle, omitempty"`
-	displayArtist []Performer
-	contributors  []Party
-	label         []Party
-	Genre         StringValue `json:"genre, omitempty"`
-	work          MusicWork
-	// 	products:[MusicProduct]
+// type MusicRecording struct {
+// 	Identifiers   []Identifier `json:"identifiers, omitempty"`
+// 	Title         StringValue  `json:"displayTitle, omitempty"`
+// 	displayArtist []Performer
+// 	contributors  []Party
+// 	label         []Party
+// 	Genre         StringValue `json:"genre, omitempty"`
+// 	work          MusicWork
+// 	// 	products:[MusicProduct]
+// }
+type MusicRecording struct {
+	isrc string `json:"isrc, omitempty"`
+
+	title StringValue `json:"title, omitempty"`
+
+	products   []MusicProductLink   `json:"products, omitempty"`
+	releases   []MusicReleaseLink   `json:"releases, omitempty"`
+	performers []MusicPerformerLink `json:"performers, omitempty"`
+	labels     []RecordLabelLink    `json:"labels, omitempty"`
+	works      []MusicWorkLink      `json:"works, omitempty"`
 }
 
-// recordingResolver defines grapQL resolver functions for the recording fields
-type recordingResolver struct {
-	recording *Recording
+// musicRecordingResolver defines grapQL resolver functions for the recording fields
+type musicRecordingResolver struct {
+	musicRecording *MusicRecording
 }
 
-func (r *recordingResolver) Work() *musicWorkResolver {
-	return &musicWorkResolver{&r.recording.work}
+func (r *musicRecordingResolver) Work() *musicWorkResolver {
+	return &musicWorkResolver{&r.musicRecording.work}
 }
 
-func (r *recordingResolver) Label() *[]*partyResolver {
+func (r *musicRecordingResolver) Label() *[]*partyResolver {
 	var partyResolvers []*partyResolver
-	for _, party := range r.recording.label {
+	for _, party := range r.musicRecording.label {
 		partyResolvers = append(partyResolvers, &partyResolver{&party})
 	}
 	return &partyResolvers
 }
 
-func (r *recordingResolver) Contributors() *[]*partyResolver {
+func (r *musicRecordingResolver) Contributors() *[]*partyResolver {
 	var partyResolvers []*partyResolver
-	for _, party := range r.recording.contributors {
+	for _, party := range r.musicRecording.contributors {
 		partyResolvers = append(partyResolvers, &partyResolver{&party})
 	}
 	return &partyResolvers
 }
 
-func (r *recordingResolver) DisplayArtist() *[]*performerResolver {
+func (r *musicRecordingResolver) DisplayArtist() *[]*performerResolver {
 	var performerResolvers []*performerResolver
-	for _, performer := range r.recording.displayArtist {
+	for _, performer := range r.musicRecording.displayArtist {
 		performerResolvers = append(performerResolvers, &performerResolver{&performer})
 	}
 	return &performerResolvers
 }
 
-func (r *recordingResolver) DisplayTitle() *stringValueResolver {
-	return &stringValueResolver{value: r.recording.Title.value, sources: r.recording.Title.sources}
+func (r *musicRecordingResolver) DisplayTitle() *stringValueResolver {
+	return &stringValueResolver{value: r.musicRecording.Title.value, sources: r.musicRecording.Title.sources}
 }
 
-func (r *recordingResolver) Genre() *stringValueResolver {
-	return &stringValueResolver{value: r.recording.Genre.value, sources: r.recording.Genre.sources}
+func (r *musicRecordingResolver) Genre() *stringValueResolver {
+	return &stringValueResolver{value: r.musicRecording.Genre.value, sources: r.musicRecording.Genre.sources}
 }
 
-func (r *recordingResolver) Identifiers() *[]*identifierResolver {
+func (r *musicRecordingResolver) Identifiers() *[]*identifierResolver {
 	var identifierResolvers []*identifierResolver
-	for _, identifier := range r.recording.Identifiers {
+	for _, identifier := range r.musicRecording.Identifiers {
 		identifierResolvers = append(identifierResolvers, &identifierResolver{identifier.ID, identifier.Type})
 	}
 	return &identifierResolvers
@@ -526,11 +619,7 @@ func (r *identifierResolver) Type() string {
 	return r.typ
 }
 
-type StringSource struct {
-	value  string `json:"value, omitempty"`
-	source string `json:"source, omitempty"`
-	score  string `json:"score, omitempty"`
-}
+
 
 // stringSourceResolver defines grapQL resolver functions for the stringSource fields
 type stringSourceResolver struct {
@@ -620,4 +709,80 @@ func (iv *intValueResolver) Sources() *[]*intSourceResolver {
 		intSourceResolvers = append(intSourceResolvers, &intSourceResolver{source.value, source.source, source.score})
 	}
 	return &intSourceResolvers
+}
+
+
+//
+//  --- Link Types ---
+//
+type MusicPerformerLink struct {
+  source     Source!
+  performer: MusicPerformer!
+  role:      String
+}
+
+type MusicComposerLink struct {
+  source:   Source!
+  composer: MusicComposer!
+}
+
+type RecordLabelLink struct {
+  source: Source!
+  label:  RecordLabel!
+}
+
+type MusicPublisherLink struct {
+  source:    Source!
+  publisher: MusicPublisher!
+}
+
+type MusicRecordingLink struct {
+  source:    Source!
+  recording: MusicRecording!
+}
+
+type MusicWorkLink struct {
+  source: Source!
+  work:   MusicWork!
+}
+
+type MusicReleaseLink struct {
+  source:  Source!
+  release: MusicRelease!
+}
+
+type MusicProductLink struct {
+  source:  Source!
+  product: MusicProduct!
+}
+
+
+//
+// --- Value Types ---
+//
+const PartyIdentifierType (
+  ISNI = 1
+  IPI
+  DPID
+)
+
+type PartyIdentifier  struct{
+  typ   PartyIdentifierType
+  value  string
+  source  Source
+}
+
+type StringValue struct {
+	value   string         `json:"value, omitempty"`
+	sources []StringSource `json:"sources, omitempty"`
+}
+
+type StringSource struct {
+	value  string `json:"value, omitempty"`
+	source Source `json:"source, omitempty"`
+	score  Int `json:"score, omitempty"`
+}
+
+type Source struct {
+  name  string
 }
